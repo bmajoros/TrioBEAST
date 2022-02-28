@@ -17,12 +17,14 @@ using namespace std;
 using namespace BOOM;
 
 enum Individual { MOTHER=0, FATHER=1, CHILD=2 };
+enum Allele { REF=0, ALT=1 };
+enum MaternalPaternal { MAT=0, PAT=1 };
 
 class Application {
   int motherIndex, fatherIndex; // Indices in VCF #CHROM line
   Array1D<bool> parentMaternal; // For this parent, which copy is passed down
-  Array2D<int> V; // Affected status; indexed as: V[individual][copy]
-  Array2D<int> counts; // Indexed as V[individual][copy]; e.g. V[CHILD][1]
+  Array2D<int> V; // Affected status; indexed as: V[individual][mat/pat]
+  Array2D<int> counts; // Indexed as V[individual][alt/ref]
   float RECOMB; // Recombination rate (between gene and causal variant)
   Array1D<bool> recombined; // indexed by Individual
   VariantAndGenotypes simNext(VcfReader &);
@@ -342,9 +344,11 @@ void Application::simCounts(const float theta,const Vector<Genotype> &G,
     const float myTheta=hasASE ? theta : 1.0;
     const float p=myTheta/(myTheta+1);
     GSL::GslBinomial binom(p);
-    const int alt=binom.random(N);
-    counts[indiv][0]=alt;
-    counts[indiv][1]=N-alt;
+    const int maternal=binom.random(N);
+    const int alt=g[MAT]==ALT ? maternal : N-maternal;
+    const int ref=N-alt;
+    counts[indiv][REF]=ref;
+    counts[indiv][ALT]=alt;
   }
 }
 

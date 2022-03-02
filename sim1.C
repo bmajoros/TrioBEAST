@@ -13,6 +13,7 @@
 #include "BOOM/GSL/GslBinomial.H"
 #include "BOOM/Array1D.H"
 #include "BOOM/Array2D.H"
+#include "BOOM/Array3D.H"
 using namespace std;
 using namespace BOOM;
 
@@ -24,7 +25,7 @@ class Application {
   int motherIndex, fatherIndex; // Indices in VCF #CHROM line
   Array1D<bool> parentMaternal; // For this parent, which copy is passed down
   Array2D<int> V; // Affected status; indexed as: V[individual][mat/pat]
-  Array2D<int> counts; // Indexed as V[individual][alt/ref]
+  Array3D<int> counts; // Indexed as V[site][individual][ref/alt]
   float RECOMB; // Recombination rate (between gene and causal variant)
   Array1D<bool> recombined; // indexed by Individual
   VariantAndGenotypes simNext(VcfReader &);
@@ -37,16 +38,21 @@ class Application {
   void printGenotypes(const Vector<Genotype> &,ostream &);
   void writeTruth(int geneNum,const Vector<VariantAndGenotypes> &,
 		  float theta,int total,ostream &);
-  void writeData(int geneNum,const Vector<VariantAndGenotypes> &,ostream &);
-  void writeTruthSites(const Vector<VariantAndGenotypes> &,const float theta,
-		       const int total,ostream &);
+  //void writeVCF(int geneNum,const Vector<VariantAndGenotypes> &,ostream &);
+  void writeData(int geneNum,const Vector<VariantAndGenotypes> &,
+		 const Array3D<int> &counts,const int total,ostream &);
+  void writePhasedSites(const Vector<VariantAndGenotypes> &,const float theta,
+			const int total,ostream &);
+  void writeUnphasedSites(const Vector<VariantAndGenotypes> &,
+			  const int total,ostream &);
   int inheritAffected(Individual parent);
   void swapCopy(int &c);
   String phasedV(BOOM::Array2D<int>::RowIn2DArray<int> row);
   String unphasedV(BOOM::Array2D<int>::RowIn2DArray<int> row);
   String phased(const Genotype &);
   String unphased(const Genotype &);
-  void simCounts(const float theta,const Vector<Genotype> &,int total);
+  void simCounts(const float theta,const Vector<VariantAndGenotypes> &,
+		 const int total,Array3D<int> &counts);
 public:
   Application();
   int main(int argc,char *argv[]);
@@ -70,7 +76,7 @@ int main(int argc,char *argv[])
 
 
 Application::Application()
-  : V(3,2), parentMaternal(2), recombined(2), counts(3,2)
+  : V(3,2), parentMaternal(2), recombined(2)
 {
   // ctor
 
@@ -84,7 +90,7 @@ int Application::main(int argc,char *argv[])
   // Process command line
   CommandLine cmd(argc,argv,"");
   if(cmd.numArgs()!=10)
-    throw String("sim1 <in.vcf> <mother-ID> <father-ID> <#genes> <variants-per-gene> <reads-per-site> <recombination-rate> <theta> <out-truth> <out-data>");
+    throw String("sim1 <in.vcf> <mother-ID> <father-ID> <#genes> <variants-per-gene> <reads-per-site> <recombination-rate> <theta> <out-truth.essex> <out-data.essex>");
   const String VCF_FILE=cmd.arg(0);
   const String MOTHER_ID=cmd.arg(1);
   const String FATHER_ID=cmd.arg(2);
@@ -96,7 +102,8 @@ int Application::main(int argc,char *argv[])
   const String truthFileName=cmd.arg(8);
   const String dataFileName=cmd.arg(9);
 
-  ofstream truthFile(truthFileName), dataFile(dataFileName);
+  counts.resize(VARIANTS_PER_GENE,3,2); // sites, individuals, alleles
+  ofstream truthFile(truthFileName), dataFile(datFileName);
   VcfReader reader(VCF_FILE);
   reader.hashSampleIDs();
   motherIndex=reader.getSampleIndex(MOTHER_ID);
@@ -107,8 +114,9 @@ int Application::main(int argc,char *argv[])
     Vector<VariantAndGenotypes> variants;
     for(int varNum=0 ; varNum<VARIANTS_PER_GENE ; ++varNum)
       variants.push_back(simNext(reader));
+    simCounts(THETA,variants,READS_PER_SITE,counts);
     writeTruth(geneNum,variants,THETA,READS_PER_SITE,truthFile);
-    writeData(geneNum,variants,dataFile);
+    writeData(geneNum,variants,counts,READS_PER_SITE,dataFile);
   }
 
   return 0;
@@ -130,7 +138,7 @@ String Application::unphasedV(BOOM::Array2D<int>::RowIn2DArray<int> row)
 
 
 
-void Application::writeTruthSites(const Vector<VariantAndGenotypes> &variants,
+void Application::writePhasedSites(const Vector<VariantAndGenotypes> &variants,
 				  const float theta,const int total,
 				  ostream &os)
 {
@@ -144,11 +152,36 @@ void Application::writeTruthSites(const Vector<VariantAndGenotypes> &variants,
       <<"(mother "<<phased(genotypes[MOTHER])<<") "
       <<"(father "<<phased(genotypes[FATHER])<<") "
       <<"(child "<<phased(genotypes[CHILD])<<"))\n";
-    simCounts(theta,genotypes,total);
     os<<"\t\t(counts "
-      <<"(mother "<<counts[MOTHER][0]<<" "<<counts[MOTHER][1]<<") "
-      <<"(father "<<counts[FATHER][0]<<" "<<counts[FATHER][1]<<") "
-      <<"(child "<<counts[CHILD][0]<<" "<<counts[CHILD][1]<<")))"
+      <<"(mother "<<counts[i][MOTHER][REF]<<" "<<counts[i][MOTHER][ALT]<<") "
+      <<"(father "<<counts[i][FATHER][REF]<<" "<<counts[i][FATHER][ALT]<<") "
+      <<"(child "<<counts[i][CHILD][REF]<<" "<<counts[i][CHILD][ALT]<<")))"
+      <<endl;
+  }
+}
+
+
+
+void Application::writeUnphasedSites(const Vector<VariantAndGenotypes> &
+				    const_variants,
+				    const int total,ostream &os)
+{
+  Vector<VariantAndGenotypes> variants=const_variants;
+  const int numSites=variants.size();
+  for(int i=0 ; i<numSites ; ++i) {
+    VariantAndGenotypes &vg=variants[i];
+    //    const Variant &v=vg.variant;
+    Vector<Genotype> &genotypes=vg.genotypes;
+    unphaseGenotypes(genotypes);
+    os<<"\t(site "<<i<<" ";
+    os<<"(genotypes "
+      <<"(mother "<<unphased(genotypes[MOTHER])<<") "
+      <<"(father "<<unphased(genotypes[FATHER])<<") "
+      <<"(child "<<unphased(genotypes[CHILD])<<"))\n";
+    os<<"\t\t(counts "
+      <<"(mother "<<counts[i][MOTHER][REF]<<" "<<counts[i][MOTHER][ALT]<<") "
+      <<"(father "<<counts[i][FATHER][REF]<<" "<<counts[i][FATHER][ALT]<<") "
+      <<"(child "<<counts[i][CHILD][REF]<<" "<<counts[i][CHILD][ALT]<<")))"
       <<endl;
   }
 }
@@ -156,7 +189,7 @@ void Application::writeTruthSites(const Vector<VariantAndGenotypes> &variants,
 
 
 void Application::writeTruth(const int geneNum,
-			     const Vector<VariantAndGenotypes> &vg,
+			     const Vector<VariantAndGenotypes> &variants,
 			     float theta,int total,ostream &os)
 {
   os<<"(gene GENE"<<geneNum<<endl;
@@ -167,18 +200,44 @@ void Application::writeTruth(const int geneNum,
     <<") (father "<<(parentMaternal[FATHER]?0:1)<<"))"<<endl;
   os<<"\t(recombined (mother "<<(recombined[MOTHER]?1:0)
     <<") (father "<<(recombined[FATHER]?1:0)<<"))"<<endl;
-  writeTruthSites(vg,theta,total,os);
+  writePhasedSites(variants,theta,total,os);
   os<<")"<<endl;
 }
 
 
 
-void Application::writeData(const int geneNum,
-			    const Vector<VariantAndGenotypes> &vg,
+void Application::writeData(int geneNum,
+			    const Vector<VariantAndGenotypes> &variants,
+			    const Array3D<int> &counts,const int total,
 			    ostream &os)
 {
-  //unphaseGenotypes(vg.genotypes);
+  os<<"(gene GENE"<<geneNum<<endl;
+  writeUnphasedSites(variants,total,os);
+  os<<")"<<endl;
 }
+
+
+
+/*void Application::writeVCF(const int geneNum,
+			   const Vector<VariantAndGenotypes> &const_variants,
+			   ostream &os)
+{
+  os<<"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tMOTHER\tFATHER\tCHILD"<<endl;
+  Vector<VariantAndGenotypes> variants=const_variants;
+  const int numSites=variants.size();
+  for(int site=0 ; site<numSites ; ++site) {
+    VariantAndGenotypes &vg=variants[site];
+    Variant &v=vg.variant;
+    unphaseGenotypes(vg.genotypes);
+    os<<v.getChr()<<"\t"<<v.getPos()<<"\t"<<v.getID()<<"\t"
+      <<v.getAllele(0)<<"\t"<<v.getAllele(1)<<"\t100\tPASS\tVT=SNP\tGT";
+    for(int indiv=0 ; indiv<3 ; ++indiv) {
+      const Genotype &g=vg.genotypes[indiv];
+      os<<"\t"<<g[0]<<"/"<<g[1];
+    }
+    os<<endl;
+  }
+  }*/
 
 
 
@@ -188,8 +247,13 @@ void Application::chooseInheritedCopies()
   // maternal vs. paternal copy, and similarly for his father's maternal/
   // paternal copy.
 
-  parentMaternal[MOTHER]=GSL::Random::randomBool();
-  parentMaternal[FATHER]=GSL::Random::randomBool();
+  //parentMaternal[MOTHER]=GSL::Random::randomBool();
+  //parentMaternal[FATHER]=GSL::Random::randomBool();
+
+  // UPDATE: Without loss of generality, and to simplify the representation,
+  // we always assume each parent passes its maternal gene copy to the child
+  parentMaternal[MOTHER]=true;
+  parentMaternal[FATHER]=true;
 }
 
 
@@ -331,27 +395,32 @@ String Application::unphased(const Genotype &g)
 
 
 
-void Application::simCounts(const float theta,const Vector<Genotype> &G,
-			    int N)
+void Application::simCounts(const float theta,
+			    const Vector<VariantAndGenotypes> &variants,
+			    const int N,Array3D<int> &counts)
 {
-  for(int indiv=0 ; indiv<3 ; ++indiv) {
-    const Genotype &g=G[indiv];
-    if(!g.isHet()) {
-      const int allele=g[0]; const int otherAllele=1-allele;
-      counts[indiv][allele]=N; counts[indiv][otherAllele]=0;
-      continue; }
-    const bool hasASE=V[indiv][0]!=V[indiv][1];
-    const float myTheta=hasASE ? theta : 1.0;
-    const float p=myTheta/(myTheta+1);
-    GSL::GslBinomial binom(p);
-    const int maternal=binom.random(N);
-    const int alt=g[MAT]==ALT ? maternal : N-maternal;
-    const int ref=N-alt;
-    counts[indiv][REF]=ref;
-    counts[indiv][ALT]=alt;
+  const int numSites=variants.size();
+  for(int site=0 ; site<numSites ; ++site) {
+    const VariantAndGenotypes &vg=variants[site];
+    const Vector<Genotype> &genotypes=vg.genotypes;
+    for(int indiv=0 ; indiv<3 ; ++indiv) {
+      const Genotype &g=genotypes[indiv];
+      if(!g.isHet()) {
+	const int allele=g[0]; const int otherAllele=1-allele;
+	counts[site][indiv][allele]=N; counts[site][indiv][otherAllele]=0;
+	continue; }
+      const bool hasASE=V[indiv][0]!=V[indiv][1];
+      const float myTheta=hasASE ? theta : 1.0;
+      const float p=myTheta/(myTheta+1);
+      GSL::GslBinomial binom(p);
+      const int maternal=binom.random(N);
+      const int alt=g[MAT]==ALT ? maternal : N-maternal;
+      const int ref=N-alt;
+      counts[site][indiv][REF]=ref;
+      counts[site][indiv][ALT]=alt;
+    }
   }
 }
-
 
 
 

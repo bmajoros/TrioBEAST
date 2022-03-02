@@ -103,7 +103,7 @@ int Application::main(int argc,char *argv[])
   const String dataFileName=cmd.arg(9);
 
   counts.resize(VARIANTS_PER_GENE,3,2); // sites, individuals, alleles
-  ofstream truthFile(truthFileName), dataFile(datFileName);
+  ofstream truthFile(truthFileName), dataFile(dataFileName);
   VcfReader reader(VCF_FILE);
   reader.hashSampleIDs();
   motherIndex=reader.getSampleIndex(MOTHER_ID);
@@ -126,14 +126,18 @@ int Application::main(int argc,char *argv[])
 
 String Application::phasedV(BOOM::Array2D<int>::RowIn2DArray<int> row)
 {
-  return String(row[0])+"|"+String(row[1]);
+  // This has been revised to omit the "|" since Essex can't handle that
+  
+  return String(row[0])+" "+String(row[1]);
 }
 
 
 
 String Application::unphasedV(BOOM::Array2D<int>::RowIn2DArray<int> row)
 {
-  return String(row[0])+"/"+String(row[1]);
+  // This has been revised to omit the "/" since Essex can't handle that
+
+  return String(row[0])+" "+String(row[1]);
 }
 
 
@@ -382,7 +386,7 @@ void Application::printGenotypes(const Vector<Genotype> &G,ostream &os)
 
 String Application::phased(const Genotype &g)
 {
-  return String(g[0])+"|"+String(g[1]);
+  return String(g[0])+" "+String(g[1]);
 }
 
 
@@ -390,7 +394,7 @@ String Application::phased(const Genotype &g)
 
 String Application::unphased(const Genotype &g)
 {
-  return String(g[0])+"/"+String(g[1]);
+  return String(g[0])+" "+String(g[1]);
 }
 
 

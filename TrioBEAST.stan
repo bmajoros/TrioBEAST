@@ -23,7 +23,7 @@ transformed parameters {
 }
 model {
    // Priors:
-   log2(theta) ~ normal(0, sigma);
+   log2(theta) ~ normal(0, 1);
    target += -log(theta * log(2)); // Jacobian
 
    // Likelihoods:

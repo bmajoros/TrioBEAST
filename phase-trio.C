@@ -24,6 +24,7 @@ class Application {
   void setEssexNumericChild(Essex::CompositeNode *,int which,int value);
   String compactString(const Genotype &);
   void install(const String &encoded,int first,int second,Genotype &);
+  void installSuccess(bool phased,Essex::Node *);
 public:
   Application();
   int main(int argc,char *argv[]);
@@ -79,12 +80,13 @@ int Application::main(int argc,char *argv[])
       Genotype mother=getEssexGT(site,"mother");
       Genotype father=getEssexGT(site,"father");
       Genotype child=getEssexGT(site,"child");
-      cout<<mother<<" "<<father<<" "<<child<<"  =>  ";
+      //cout<<mother<<" "<<father<<" "<<child<<"  =>  ";
       bool success=phase(mother,father,child);
-      cout<<mother<<" "<<father<<" "<<child<<endl;
+      //cout<<mother<<" "<<father<<" "<<child<<endl;
       installGT(site,"child",child);
       installGT(site,"mother",mother);
       installGT(site,"father",father);
+      installSuccess(success,site);
     }
     root->printOn(os); os<<endl;
   }
@@ -92,6 +94,13 @@ int Application::main(int argc,char *argv[])
   return 0;
 }
 
+
+
+void Application::installSuccess(bool phased,Essex::Node *site)
+{
+  Essex::CompositeNode *comp=static_cast<Essex::CompositeNode*>(site);
+  comp->append("phased",phased ? 1 : 0);
+}
 
 
 int Application::getEssexNumericChild(Essex::CompositeNode *node,int which)

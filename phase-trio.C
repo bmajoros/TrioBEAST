@@ -5,6 +5,7 @@
  License (GPL) version 3, as described at www.opensource.org.
  ****************************************************************/
 #include <iostream>
+#include <fstream>
 #include "BOOM/String.H"
 #include "BOOM/CommandLine.H"
 #include "BOOM/Essex.H"
@@ -18,7 +19,9 @@ class Application {
   void initMap(Map<String,String> &);
   bool phase(Genotype &mother,Genotype &father,Genotype &child);
   Genotype getEssexGT(Essex::Node *siteGenotype,String label);
+  void installGT(Essex::Node *,const String &label,const Genotype &);
   int getEssexNumericChild(Essex::CompositeNode *,int whichChild);
+  void setEssexNumericChild(Essex::CompositeNode *,int which,int value);
   String compactString(const Genotype &);
   void install(const String &encoded,int first,int second,Genotype &);
 public:
@@ -61,6 +64,9 @@ int Application::main(int argc,char *argv[])
   const String infile=cmd.arg(0);
   const String outfile=cmd.arg(1);
 
+  // Create output file
+  ofstream os(outfile);
+  
   // Process each gene in the input file
   Essex::Parser parser(infile);
   Essex::Node *root;
@@ -76,7 +82,11 @@ int Application::main(int argc,char *argv[])
       cout<<mother<<" "<<father<<" "<<child<<"  =>  ";
       bool success=phase(mother,father,child);
       cout<<mother<<" "<<father<<" "<<child<<endl;
+      installGT(site,"child",child);
+      installGT(site,"mother",mother);
+      installGT(site,"father",father);
     }
+    root->printOn(os); os<<endl;
   }
 
   return 0;
@@ -91,6 +101,31 @@ int Application::getEssexNumericChild(Essex::CompositeNode *node,int which)
   if(!child) throw "Child is not numeric in getEssexNumericChild";
   return child->getValue();
 }
+
+
+
+void Application::setEssexNumericChild(Essex::CompositeNode *node,int which,
+				      int value)
+{
+  Essex::NumericNode *child=
+    dynamic_cast<Essex::NumericNode*>(node->getIthChild(which));
+  if(!child) throw "Child is not numeric in getEssexNumericChild";
+  child->setValue(value);
+}
+
+
+
+void Application::installGT(Essex::Node *site,const String &label,
+			    const Genotype &G)
+{
+  Essex::CompositeNode *child=
+    dynamic_cast<Essex::CompositeNode*>(site->findChild(label));
+  if(!child) throw label+" not found in getEssexGT";
+  if(child->getNumChildren()!=2) throw label+" has wrong number of children";
+  setEssexNumericChild(child,0,G[0]);
+  setEssexNumericChild(child,1,G[1]);
+}
+
 
 
 Genotype Application::getEssexGT(Essex::Node *site,String label)

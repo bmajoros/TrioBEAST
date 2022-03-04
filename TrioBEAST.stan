@@ -1,12 +1,22 @@
-functions 
-{
+//====================================================================
+// TrioBEAST.stan
+// (C)2022 W.H. Majoros (bmajoros@alumni.duke.edu)
+// This is OPEN SOURCE software, released under the GPL 3.0 license.
+//
+// Indexing of arrays:
+//   Individuals: 0=mother, 1=father, 3=child
+//   Haplotypes:  0=maternal, 1=pathernal
+//====================================================================
+
+functions {
+
 real binom_lpmf(int x,int n,int het,real p) {
    return het ? binomial_lpmf(x|n,p) : 1.0;
 }
+
 real likelihoods(int i,int[,,] count,int[,] het,real logAffected,
    real logUnaffected,real logDenovo,real logNoDenovo,real logRecomb,
-   real logNoRecomb,real p)
-{
+   real logNoRecomb,real p) {
    // Sum over all possible assignments of affected status:
    real array[11];
       

@@ -21,7 +21,9 @@ from Pipe import Pipe
 from SummaryStats import SummaryStats
 import getopt
 from EssexParser import EssexParser
+from Stan import Stan
 from StanParser import StanParser
+import numpy as np
 
 WARMUP=300
 STDERR=TempFilename.generate(".stderr")
@@ -31,10 +33,11 @@ OUTPUT_TEMP=TempFilename.generate(".stanoutputs")
 
 #=========================================================================
 class Site:
-    def __init__(self,ID):
+    def __init__(self,ID,phased):
         self.ID=ID
-        self.phased=None
-        self.counts=[]
+        self.phased=phased
+        self.counts=np.zeros((3,2),int) # [indiv][haplotype]
+        self.het=[0]*3 # [indiv]
 #=========================================================================
 class Gene:
     def __init__(self,ID):
@@ -43,7 +46,35 @@ class Gene:
     def addSite(self,site):
         self.sites.append(site)
 #=========================================================================
+def parseGene(sxGene):
+    ID=sxGene[0];
+    gene=Gene(ID);
+    numSites=sxGene.numElements()-1
+    for i in range(numSites):
+        sxSite=sxGene[i+1];
+        ID=sxSite[0]
+        sxGenotypes=sxSite.findChild("genotypes")
+        sxCounts=sxSite.findChild("counts")
+        isPhased=sxSite.getAttribute("phased")
+        site=Site(ID,isPhased)
+        site.het[0]=isHet(sxGenotypes,"mother")
+        site.het[1]=isHet(sxGenotypes,"father")
+        site.het[2]=isHet(sxGenotypes,"child")
+        site.counts[0]=getCounts(sxCounts,"mother")
+        site.counts[1]=getCounts(sxCounts,"father")
+        site.counts[2]=getCounts(sxCounts,"child")
+        gene.addSite(site)
+    return gene
 
+def getCounts(sxCounts,label):
+    child=sxCounts.findChild(label)
+    return 
+
+def isHet(sxGenotypes,label):
+    child=sxGenotypes.findChild(label)
+    return child[0]!=child[1]
+
+OLD:
 def parseCounts(sxCounts):
     if(sxCounts is None): raise Exception("no counts")
     n=sxCounts.numElements()

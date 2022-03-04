@@ -28,6 +28,8 @@ model {
 
    // Likelihoods:
    for(i in 1:N_SITES) {
+      if(!isPhased[i]) continue; // ### Need to relax this (later)
+      
       // Sum over all possible assignments of affected status:
       real array[11];
       

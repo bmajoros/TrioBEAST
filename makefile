@@ -1,7 +1,7 @@
 CC		= g++
 DEBUG		= -g
 OPTIMIZE	= -O
-CFLAGS		= $(OPTIMIZE) -fpermissive -w
+CFLAGS		= $(OPTIMIZE) -fpermissive -I$(GSLDIR)/include -w
 LDFLAGS		= $(OPTIMIZE)
 BOOM		= BOOM
 OBJ		= obj

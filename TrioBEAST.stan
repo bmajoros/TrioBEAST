@@ -1,7 +1,7 @@
 data {
    int N_SITES;
    int<lower=0> count[N_SITES,3,2]; // site,individual,haplotype
-   int<lower=0,upper=1> genotype[N_SITES,3,2]; // site,individual,haplotype
+   //int<lower=0,upper=1> genotype[N_SITES,3,2]; // site,individual,haplotype
    int<lower=0,upper=1> isPhased[N_SITES]; // triple hets are unphased
    real<lower=0,upper=1> probDenovo; // de novo mutation rate, per copy
    real<lower=0,upper=1> probRecomb; // recombination rate
@@ -31,6 +31,7 @@ model {
       if(!isPhased[i]) continue; // ### Need to relax this (later)
       
       // Sum over all possible assignments of affected status:
+      {
       real array[11];
       
       // 00 00 00 = all unaffected
@@ -111,6 +112,7 @@ model {
          + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
  
       target+=log_sum_exp(array);
+      }
    }
 }
 

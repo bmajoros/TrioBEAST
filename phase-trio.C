@@ -25,6 +25,10 @@ class Application {
   String compactString(const Genotype &);
   void install(const String &encoded,int first,int second,Genotype &);
   void installSuccess(bool phased,Essex::Node *);
+  void phaseCounts(Genotype mother,Genotype father,Genotype child,   
+		   Essex::Node *site);
+  void phaseCounts(Genotype G,String label,Essex::Node *counts);
+  void swapCounts(Essex::Node *counts,String label);
 public:
   Application();
   int main(int argc,char *argv[]);
@@ -73,25 +77,67 @@ int Application::main(int argc,char *argv[])
   Essex::Node *root;
   while(root=parser.nextElem()) {
     Vector<Essex::Node*> sites;
-    root->findDescendents("genotypes",sites);
+    //root->findDescendents("genotypes",sites);
+    root->findDescendents("site",sites);
     for(Vector<Essex::Node*>::iterator cur=sites.begin(), end=sites.end() ;
 	cur!=end ; ++cur) {
       Essex::Node *site=*cur;
-      Genotype mother=getEssexGT(site,"mother");
-      Genotype father=getEssexGT(site,"father");
-      Genotype child=getEssexGT(site,"child");
-      //cout<<mother<<" "<<father<<" "<<child<<"  =>  ";
+      Essex::Node *genotypes=site->findChild("genotypes");
+      Genotype mother=getEssexGT(genotypes,"mother");
+      Genotype father=getEssexGT(genotypes,"father");
+      Genotype child=getEssexGT(genotypes,"child");
       bool success=phase(mother,father,child);
-      //cout<<mother<<" "<<father<<" "<<child<<endl;
-      installGT(site,"child",child);
-      installGT(site,"mother",mother);
-      installGT(site,"father",father);
+      installGT(genotypes,"child",child);
+      installGT(genotypes,"mother",mother);
+      installGT(genotypes,"father",father);
       installSuccess(success,site);
+      if(success) phaseCounts(mother,father,child,site);
     }
     root->printOn(os); os<<endl;
   }
 
   return 0;
+}
+
+
+
+void Application::phaseCounts(Genotype mother,Genotype father,Genotype child,
+			      Essex::Node *site)
+{
+  // PRECONDITION: this site was able to be phased
+
+  Essex::Node *counts=site->findChild("counts");
+  phaseCounts(mother,"mother",counts);
+  phaseCounts(father,"father",counts);
+  phaseCounts(child,"child",counts);
+}
+
+
+
+void Application::phaseCounts(Genotype G,String label,Essex::Node *counts)
+{
+  // PRECONDITION: genotype has two alleles
+
+  if(!G.isHet()) return;
+  if(G[0]==1) swapCounts(counts,label);
+}
+
+
+
+void Application::swapCounts(Essex::Node *counts,String label)
+{
+  Essex::CompositeNode *node=
+    dynamic_cast<Essex::CompositeNode*>(counts->findChild(label));
+  if(!node) throw "Cannot cast in swapCounts";
+  if(node->getNumChildren()!=2) 
+    throw "Wrong number of children in swapCounts()";
+  Essex::NumericNode *mat=
+    dynamic_cast<Essex::NumericNode*>(node->getIthChild(0));
+  Essex::NumericNode *pat=
+    dynamic_cast<Essex::NumericNode*>(node->getIthChild(1));
+  float temp=mat->getValue();
+  mat->setValue(pat->getValue());
+  pat->setValue(temp);
 }
 
 
@@ -244,14 +290,12 @@ bool Application::phase(Genotype &mother,Genotype &father,Genotype &child)
 {
   // PRECONDITION: all three genotypes have two alleles each
 
-  //cout<<mother<<"\t"<<father<<"\t"<<child<<endl;
   const String encoded=
     compactString(mother)+compactString(father)+compactString(child);
   if(encoded=="010101") return false; // triple het, can't phase
   if(!phasingMap.isDefined(encoded))
     throw String("Genotype encoding is not defined: ")+encoded;
   String phased=phasingMap[encoded];
-  //cout<<encoded<<" => "<<phased<<endl;
   install(phased,0,1,mother);
   install(phased,2,3,father);
   install(phased,4,5,child);

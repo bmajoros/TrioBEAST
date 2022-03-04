@@ -16,8 +16,10 @@ import ProgramName
 from Rex import Rex
 rex=Rex()
 
-HERE="/hpc/group/majoroslab/trios/git/"
-STAN="/hpc/group/majoroslab/cmdstan-2.27.0"
+HERE="/gpfs/fs1/data/reddylab/bmajoros/trios/git/"
+#HERE="/hpc/group/majoroslab/trios/git/"
+STAN="/data/reddylab/software/stan-2.20.0"
+#STAN="/hpc/group/majoroslab/cmdstan-2.27.0"
 
 #=========================================================================
 # main()

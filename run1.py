@@ -25,6 +25,7 @@ from Stan import Stan
 from StanParser import StanParser
 import numpy as np
 
+DEBUG=False
 WARMUP=300
 STDERR=TempFilename.generate(".stderr")
 INPUT_FILE=TempFilename.generate(".staninputs")
@@ -113,7 +114,7 @@ def writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,filename):
     # int<lower=0,upper=1> isPhased[N_SITES]
     phased=[]
     for site in gene.sites: phased.append(site.phased)
-    stan.writeOneDimArray("isPhased",phased,3,OUT)
+    stan.writeOneDimArray("isPhased",phased,N_SITES,OUT)
 
     # Probabilities
     print("probDenovo <- ",probDenovo,file=OUT)
@@ -127,7 +128,13 @@ def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,
     writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,INPUT_FILE)
 
     # Run STAN model
-    stan.run(WARMUP,numSamples,INPUT_FILE,OUTPUT_TEMP,STDERR,INIT_FILE)
+    if(DEBUG):
+        cmd=stan.getCmd(WARMUP,numSamples,INPUT_FILE,OUTPUT_TEMP,STDERR,
+                        INIT_FILE)
+        print(cmd)
+        exit()
+    else:
+        stan.run(WARMUP,numSamples,INPUT_FILE,OUTPUT_TEMP,STDERR,INIT_FILE)
 
     # Parse MCMC output
     parser=StanParser(OUTPUT_TEMP)
@@ -179,8 +186,8 @@ while(True):
                                             probRecomb,probAffected,Lambda)
     P_alt=round(P_alt,3)
     median=round(median,3)
-    CI_left=round(CI_left,3); CI_left=round(CI_right,3)
-    print(gene.ID,P_alt,median,str(lowerCI)+"-"+str(upperCI),sep="\t")
+    CI_left=round(CI_left,3); CI_right=round(CI_right,3)
+    print(gene.ID,P_alt,median,str(CI_left)+"-"+str(CI_right),sep="\t")
     geneIndex+=1
 os.remove(STDERR)
 os.remove(INPUT_FILE)

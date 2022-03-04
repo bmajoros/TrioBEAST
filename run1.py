@@ -143,7 +143,8 @@ def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,
     (median,CI_left,CI_right)=parser.getMedianAndCI(0.95,"theta")
     left=parser.getLeftTail("theta",1.0/Lambda)
     right=parser.getRightTail("theta",Lambda)
-    P_alt=left+right;
+    #P_alt=left+right
+    P_alt=max(left,right)
 
     # Return estimates
     return (median,P_alt,CI_left,CI_right)

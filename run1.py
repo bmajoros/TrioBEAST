@@ -97,34 +97,34 @@ def writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,filename):
     OUT=open(filename,"wt")
 
     # N_SITES
-    N_SITES=gene.sizes.length()
+    N_SITES=len(gene.sites)
     print("N_SITES <- ",N_SITES,file=OUT)
 
     # int<lower=0,upper=1> het[N_SITES,3]
     het=np.zeros((N_SITES,3),int)
     for i in range(N_SITES): het[i]=gene.sites[i].het
-    stan.writeTwoDimArray("het",het,N_SITES,3)
+    stan.writeTwoDimArray("het",het,N_SITES,3,OUT)
 
     # int<lower=0> count[N_SITES,3,2]
     count=np.zeros((N_SITES,3,2),int)
     for i in range(N_SITES): count[i]=gene.sites[i].counts
-    stan.writeThreeDimArray("count",N_SITES,3,2)
+    stan.writeThreeDimArray("count",count,N_SITES,3,2,OUT)
 
     # int<lower=0,upper=1> isPhased[N_SITES]
     phased=[]
     for site in gene.sites: phased.append(site.phased)
-    stan.writeOneDimArray("isPhased",phased,3)
+    stan.writeOneDimArray("isPhased",phased,3,OUT)
 
-    # probabilies
+    # Probabilities
     print("probDenovo <- ",probDenovo,file=OUT)
     print("probRecomb <- ",probRecomb,file=OUT)
     print("probAffected <- ",probAffected,file=OUT)
     OUT.close()
 
-def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,outfile,
-            Lambea):
+def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,
+            Lambda):
     # Write inputs file for STAN
-    writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,INPUT_FILE):
+    writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,INPUT_FILE)
 
     # Run STAN model
     stan.run(WARMUP,numSamples,INPUT_FILE,OUTPUT_TEMP,STDERR,INIT_FILE)
@@ -145,9 +145,10 @@ def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,outfile,
 # main()
 #=========================================================================
 (options,args)=getopt.getopt(sys.argv[1:],"s:")
-if(len(args)!=5):
-    exit(ProgramName.get()+" [-s file] <model> <input.essex> <#MCMC-samples> <firstGene-lastGene> <lambda=1.2>\n   -s = save raw STAN file\n   gene range is zero-based and inclusive\n")
-(model,inputFile,numSamples,geneRange,Lambda)=args
+if(len(args)!=8):
+    exit(ProgramName.get()+" [-s file] <model> <input.essex> <#MCMC-samples> <firstGene-lastGene> <lambda=1.2> <P(de novo)> <P(recomb)> <P(affected)>\n   -s = save raw STAN file\n   gene range is zero-based and inclusive\n")
+(model,inputFile,numSamples,geneRange,Lambda,probDenovo,probRecomb,
+ probAffected)=args
 stanFile=None
 for pair in options:
     (key,value)=pair
@@ -172,7 +173,8 @@ while(True):
     elif(geneIndex>lastIndex): break
     gene=parseGene(elem)
     if(gene is None): continue
-    outfile="" if samplesDir=="." else samplesDir+"/"+gene.ID+".samples"
+    #outfile="" if samplesDir=="." else samplesDir+"/"+gene.ID+".samples"
+    stan=Stan(model)
     (median,P_alt,CI_left,CI_right)=runGene(stan,gene,numSamples,probDenovo,
                                             probRecomb,probAffected,Lambda)
     P_alt=round(P_alt,3)

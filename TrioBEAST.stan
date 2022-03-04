@@ -1,11 +1,99 @@
-functions {
-   real binom_lpmf(int x,int n,real p,int het) {
-      return het ? binomial_lpmf(x|n,p) : 1.0;
+functions 
+{
+real binom_lpmf(int x,int n,int het,real p) {
+   return het ? binomial_lpmf(x|n,p) : 1.0;
+}
+real likelihoods(int i,int[,,] count,int[,] het,real logAffected,
+   real logUnaffected,real logDenovo,real logNoDenovo,real logRecomb,
+   real logNoRecomb,real p)
+{
+   // Sum over all possible assignments of affected status:
+   real array[11];
+      
+   // MM FF CC (Mother Father Child)
+   // 00 00 00 = all unaffected
+   array[1]=
+     binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],0.5)//M
+   + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],0.5)//F
+   + binom_lpmf(count[i,3,1]|count[i,3,1]+count[i,3,2],het[i,3],0.5)//C
+   + 4*logUnaffected + 2*logNoDenovo;
+
+   // 00 00 10 = child has a de novo in the causal variant
+   array[2]=
+     binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],0.5)//M
+   + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],0.5)//F
+   + binom_lpmf(count[i,3,1]|count[i,3,1]+count[i,3,2],het[i,3],p)//C
+   + 4*logUnaffected + logDenovo + logNoDenovo;
+
+   // 00 00 01 = child has a de novo in the causal variant
+   array[3]=
+     binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],0.5) //M
+   + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],0.5) //F
+   + binom_lpmf(count[i,3,2]|count[i,3,1]+count[i,3,2],het[i,3],p) //C
+   + 4*logUnaffected + logDenovo + logNoDenovo;
+
+   // 01 00 00 = mother affected, child doesn't inherit
+   array[4]=
+     binom_lpmf(count[i,1,2]|count[i,1,1]+count[i,1,2],het[i,1],p) //M
+   + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],0.5) //F
+   + binom_lpmf(count[i,3,1]|count[i,3,1]+count[i,3,2],het[i,3],0.5) //C
+   + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
+
+   // 01 00 10 = mother affected and recombines, child inherits
+   array[5]=
+     binom_lpmf(count[i,1,2]|count[i,1,1]+count[i,1,2],het[i,1],p) //M
+   + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],0.5) //F
+   + binom_lpmf(count[i,3,1]|count[i,3,1]+count[i,3,2],het[i,3],p) //C
+   + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
+
+   // 00 01 00 = father affected, child doesn't inherit
+   array[6]=
+     binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],0.5) //M
+   + binom_lpmf(count[i,2,2]|count[i,2,1]+count[i,2,2],het[i,2],p) //F
+   + binom_lpmf(count[i,3,1]|count[i,3,1]+count[i,3,2],het[i,3],0.5) //C
+   + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
+
+   // 00 01 00 = father affected and recombines, child inherits
+   array[7]=
+     binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],0.5) //M
+   + binom_lpmf(count[i,2,2]|count[i,2,1]+count[i,2,2],het[i,2],p) //F
+   + binom_lpmf(count[i,3,2]|count[i,3,1]+count[i,3,2],het[i,3],p) //C
+   + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
+
+   // 10 00 10 = mother affected, child inherits
+   array[8]=
+     binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],p) //M
+   + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],0.5) //F
+   + binom_lpmf(count[i,3,1]|count[i,3,1]+count[i,3,2],het[i,3],p) //C
+   + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
+
+   // 10 00 00 = mother affected and recombines, child doesn't inherit
+   array[9]=
+     binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],p) //M
+   + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],0.5) //F
+   + binom_lpmf(count[i,3,1]|count[i,3,1]+count[i,3,2],het[i,3],0.5) //C
+   + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
+
+   // 00 10 01 = father affected, child inherits
+   array[10]=
+     binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],0.5) //M
+   + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],p) //F
+   + binom_lpmf(count[i,3,2]|count[i,3,1]+count[i,3,2],het[i,3],p) //C
+   + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
+
+   // 00 10 00 = father affected and recombines, child doesn't inherit
+   array[11]=
+     binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],0.5) //M
+   + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],p) //F
+   + binom_lpmf(count[i,3,1]|count[i,3,1]+count[i,3,2],het[i,3],0.5) //C
+   + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
+ 
+   return log_sum_exp(array);
    }
 }
 data {
    int N_SITES;
-   int<lower=0,upper=1> het[N_SITE,3]; // [site,indvidual]
+   int<lower=0,upper=1> het[N_SITES,3]; // [site,indvidual]
    int<lower=0> count[N_SITES,3,2]; // [site,individual,haplotype]
    int<lower=0,upper=1> isPhased[N_SITES]; // triple hets are unphased
    real<lower=0,upper=1> probDenovo; // de novo mutation rate, per copy
@@ -34,90 +122,8 @@ model {
    // Likelihoods:
    for(i in 1:N_SITES) {
       if(!isPhased[i]) continue; // ### Need to relax this (later)
-      
-      // Sum over all possible assignments of affected status:
-      {
-      real array[11];
-      
-      // 00 00 00 = all unaffected
-      array[1]=
-           binomial_lpmf(count[i][1][1]|count[i][1][1]+count[i][1][2],0.5) //M
-         + binomial_lpmf(count[i][2][1]|count[i][2][1]+count[i][2][2],0.5) //F
-         + binomial_lpmf(count[i][3][1]|count[i][3][1]+count[i][3][2],0.5) //C
-         + 4*logUnaffected + 2*logNoDenovo;
-
-      // 00 00 10 = child has a de novo in the causal variant
-      array[2]=
-           binomial_lpmf(count[i][1][1]|count[i][1][1]+count[i][1][2],0.5) //M
-         + binomial_lpmf(count[i][2][1]|count[i][2][1]+count[i][2][2],0.5) //F
-         + binomial_lpmf(count[i][3][1]|count[i][3][1]+count[i][3][2],p) //C
-         + 4*logUnaffected + logDenovo + logNoDenovo;
-
-      // 00 00 01 = child has a de novo in the causal variant
-      array[3]=
-           binomial_lpmf(count[i][1][1]|count[i][1][1]+count[i][1][2],0.5) //M
-         + binomial_lpmf(count[i][2][1]|count[i][2][1]+count[i][2][2],0.5) //F
-         + binomial_lpmf(count[i][3][2]|count[i][3][1]+count[i][3][2],p) //C
-         + 4*logUnaffected + logDenovo + logNoDenovo;
-
-      // 01 00 00 = mother affected, child doesn't inherit
-      array[4]=
-           binomial_lpmf(count[i][1][2]|count[i][1][1]+count[i][1][2],p) //M
-         + binomial_lpmf(count[i][2][1]|count[i][2][1]+count[i][2][2],0.5) //F
-         + binomial_lpmf(count[i][3][1]|count[i][3][1]+count[i][3][2],0.5) //C
-         + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
-
-      // 01 00 10 = mother affected and recombines, child inherits
-      array[5]=
-           binomial_lpmf(count[i][1][2]|count[i][1][1]+count[i][1][2],p) //M
-         + binomial_lpmf(count[i][2][1]|count[i][2][1]+count[i][2][2],0.5) //F
-         + binomial_lpmf(count[i][3][1]|count[i][3][1]+count[i][3][2],p) //C
-         + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
-
-      // 00 01 00 = father affected, child doesn't inherit
-      array[6]=
-           binomial_lpmf(count[i][1][1]|count[i][1][1]+count[i][1][2],0.5) //M
-         + binomial_lpmf(count[i][2][2]|count[i][2][1]+count[i][2][2],p) //F
-         + binomial_lpmf(count[i][3][1]|count[i][3][1]+count[i][3][2],0.5) //C
-         + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
-
-      // 00 01 00 = father affected and recombines, child inherits
-      array[7]=
-           binomial_lpmf(count[i][1][1]|count[i][1][1]+count[i][1][2],0.5) //M
-         + binomial_lpmf(count[i][2][2]|count[i][2][1]+count[i][2][2],p) //F
-         + binomial_lpmf(count[i][3][2]|count[i][3][1]+count[i][3][2],p) //C
-         + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
-
-      // 10 00 10 = mother affected, child inherits
-      array[8]=
-           binomial_lpmf(count[i][1][1]|count[i][1][1]+count[i][1][2],p) //M
-         + binomial_lpmf(count[i][2][1]|count[i][2][1]+count[i][2][2],0.5) //F
-         + binomial_lpmf(count[i][3][1]|count[i][3][1]+count[i][3][2],p) //C
-         + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
-
-      // 10 00 00 = mother affected and recombines, child doesn't inherit
-      array[9]=
-           binomial_lpmf(count[i][1][1]|count[i][1][1]+count[i][1][2],p) //M
-         + binomial_lpmf(count[i][2][1]|count[i][2][1]+count[i][2][2],0.5) //F
-         + binomial_lpmf(count[i][3][1]|count[i][3][1]+count[i][3][2],0.5) //C
-         + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
-
-      // 00 10 01 = father affected, child inherits
-      array[10]=
-           binomial_lpmf(count[i][1][1]|count[i][1][1]+count[i][1][2],0.5) //M
-         + binomial_lpmf(count[i][2][1]|count[i][2][1]+count[i][2][2],p) //F
-         + binomial_lpmf(count[i][3][2]|count[i][3][1]+count[i][3][2],p) //C
-         + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
-
-      // 00 10 00 = father affected and recombines, child doesn't inherit
-      array[11]=
-           binomial_lpmf(count[i][1][1]|count[i][1][1]+count[i][1][2],0.5) //M
-         + binomial_lpmf(count[i][2][1]|count[i][2][1]+count[i][2][2],p) //F
-         + binomial_lpmf(count[i][3][1]|count[i][3][1]+count[i][3][2],0.5) //C
-         + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
- 
-      target+=log_sum_exp(array);
-      }
+      target+=likelihoods(i,count,het,logAffected,logUnaffected,logDenovo,
+         logNoDenovo,logRecomb,logNoRecomb,p);
    }
 }
 

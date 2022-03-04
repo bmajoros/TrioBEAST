@@ -68,69 +68,11 @@ def parseGene(sxGene):
 
 def getCounts(sxCounts,label):
     child=sxCounts.findChild(label)
-    return 
+    return np.array([child[0],child[1]])
 
 def isHet(sxGenotypes,label):
     child=sxGenotypes.findChild(label)
     return child[0]!=child[1]
-
-OLD:
-def parseCounts(sxCounts):
-    if(sxCounts is None): raise Exception("no counts")
-    n=sxCounts.numElements()
-    counts=[]
-    for i in range(n):
-        c=int(sxCounts.getIthElem(i))
-        counts.append(c)
-    return counts
-
-def parseBackground(sxBackground):
-    if(sxBackground is None): raise Exception("no background")
-    n=sxBackground.numElements()
-    bg=[]
-    for i in range(n):
-        p=float(sxBackground.getIthElem(i))
-        bg.append(p)
-    return bg
-
-def parseRep(sxRep):
-    repNum=int(sxRep.getIthElem(0))
-    background=parseBackground(sxRep.findChild("background"))
-    counts=parseCounts(sxRep.findChild("counts"))
-    rep=Replicate(repNum,background,counts)
-    return rep
-
-def parseGuide(sxGuide):
-    guideID=sxGuide.getIthElem(0)
-    sxReps=sxGuide.findChildren("rep")
-    if(len(sxReps)==0): raise Exception("no reps found for guide "+guideID)
-    reps=[]
-    for sxRep in sxReps:
-        rep=parseRep(sxRep)
-        #if(not DISCARD_ZEROS or not rep.hasZeros()):
-        if(rep.numZeros()==0 or
-           not DISCARD_ZEROS and rep.numBins()-rep.numZeros()>=2):
-            reps.append(rep)
-    if(len(reps)==0): return None
-    guide=Guide(guideID,reps)
-    return guide
-
-def parseGene(sxGene):
-    geneID=sxGene.getIthElem(0)
-    sxGuides=sxGene.findChildren("guide")
-    if(len(sxGuides)==0): raise Exception("No guides found for gene "+geneID)
-    guides=[]
-    for sxGuide in sxGuides:
-        guide=parseGuide(sxGuide)
-        if(guide is None): 
-            #print("XXX DROPPING GUIDE "+sxGuide[0])
-            continue
-        guides.append(guide)
-    if(len(guides)==0): 
-        #print("XXX DROPPING GENE "+geneID)
-        return None
-    gene=Gene(geneID,guides)
-    return gene
 
 def printFields(fields,hFile):
     numFields=len(fields)
@@ -151,116 +93,61 @@ def writeInitializationFile(filename,gene):
     print("theta <- 1",file=OUT)
     OUT.close()
 
-def writeInputsFile(gene,filename):
-    numGuides=gene.numGuides()
-    numReps=gene.maxReps()
-    K=gene.maxBins()
-
-    # NG, NREP, K
+def writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,filename):
     OUT=open(filename,"wt")
-    print("NG <-",numGuides,file=OUT) ###
-    print("MAXREPS <- ",numReps,file=OUT)
-    print("K <-",K,file=OUT)
 
-    # NREP[NG]
-    NREP=[]
-    for guide in gene.guides:
-        NREP.append(guide.numReps())
-    writeOneDimArray("NREP",NREP,numGuides,OUT)
+    # N_SITES
+    N_SITES=gene.sizes.length()
+    print("N_SITES <- ",N_SITES,file=OUT)
 
-    # NUM_BINS[NG,NREP]
-    NUM_BINS=initArray2D(numGuides,numReps,-1)
-    i=0
-    for guide in gene.guides:
-        j=0
-        for rep in guide.reps:
-            NUM_BINS[i][j]=rep.numBins()
-            j+=1
-        i+=1
-    writeTwoDimArray("NUM_BINS",NUM_BINS,numGuides,numReps,OUT)
+    # int<lower=0,upper=1> het[N_SITES,3]
+    het=np.zeros((N_SITES,3),int)
+    for i in range(N_SITES): het[i]=gene.sites[i].het
+    stan.writeTwoDimArray("het",het,N_SITES,3)
 
-    # vector[K] PI_NEG[NG,NREP]
-    PI_NEG=initArray3D(numGuides,numReps,K,-1)
-    i=0
-    for guide in gene.guides:
-        j=0
-        for rep in guide.reps:
-            for k in range(len(rep.background)):
-                PI_NEG[i][j][k]=rep.background[k]
-            j+=1
-        i+=1
-    writeThreeDimArray("DIR_NEG",PI_NEG,numGuides,numReps,K,OUT)
+    # int<lower=0> count[N_SITES,3,2]
+    count=np.zeros((N_SITES,3,2),int)
+    for i in range(N_SITES): count[i]=gene.sites[i].counts
+    stan.writeThreeDimArray("count",N_SITES,3,2)
 
-    # X[NG,NREP,K]
-    X=initArray3D(numGuides,numReps,K,-1)
-    i=0
-    for guide in gene.guides:
-        j=0
-        for rep in guide.reps:
-            for k in range(len(rep.background)):
-                X[i][j][k]=rep.counts[k]
-            j+=1
-        i+=1
-    writeThreeDimArray("X",X,numGuides,numReps,K,OUT)
+    # int<lower=0,upper=1> isPhased[N_SITES]
+    phased=[]
+    for site in gene.sites: phased.append(site.phased)
+    stan.writeOneDimArray("isPhased",phased,3)
 
-    # Sigma
-    print("sigma <- ",sigma,file=OUT)
-
-    # dropout
-    print("dropout <- ",DROPOUT,file=OUT)
+    # probabilies
+    print("probDenovo <- ",probDenovo,file=OUT)
+    print("probRecomb <- ",probRecomb,file=OUT)
+    print("probAffected <- ",probAffected,file=OUT)
     OUT.close()
 
-def runGene(gene,model,numSamples,outfile,sigma,Lambda):
+def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,outfile,
+            Lambea):
     # Write inputs file for STAN
-    writeInputsFile(gene,INPUT_FILE)
+    writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,INPUT_FILE):
 
     # Run STAN model
-    init=" init="+INIT_FILE if SHOULD_INITIALIZE else ""
-    cmd=model+" sample thin=1"+\
-        " num_samples="+numSamples+\
-        " num_warmup="+str(WARMUP)+\
-        " data file="+INPUT_FILE+\
-        init+\
-        " output file="+OUTPUT_TEMP+" refresh=0 > "+STDERR
-    #print(cmd); 
-    #exit(cmd)
-    os.system(cmd)
+    stan.run(WARMUP,numSamples,INPUT_FILE,OUTPUT_TEMP,STDERR,INIT_FILE)
 
     # Parse MCMC output
     parser=StanParser(OUTPUT_TEMP)
-    betas=betasFromW(parser,gene.numGuides()) ### 
-    #betas=parser.getVariable("B")
-    betas=[-5*x for x in betas] # Convert beta from 6-bin scale to 2-bin scale
-    if(outfile!=""): os.system("cp "+OUTPUT_TEMP+" "+outfile)
 
-    # Get posterior median
-    betas.sort(key=lambda x: x)
-    n=len(betas)
-    median=None
-    mid=int(n/2)
-    if(n%2==0): median=(betas[mid]+betas[mid+1])/2.0
-    else: median=betas[mid]
-    (lower,upper)=getCI(betas,0.95)
-    median=round(median,3)
-
-    # Get P_reg
-    greater=countRight(betas,math.log(Lambda))
-    less=countLeft(betas,math.log(1.0/Lambda))
-    Preg=max(float(greater)/float(n),float(less)/float(n))
+    # Get estimates
+    (median,CI_left,CI_right)=parser.getMedianAndCI(0.95,"theta")
+    left=parser.getLeftTail("theta",1.0/Lambda)
+    right=parser.getRightTail("theta",Lambda)
+    P_alt=left+right;
 
     # Return estimates
-    median=math.exp(median)
-    lower=math.exp(lower)
-    upper=math.exp(upper)
-    return (Preg,median,lower,upper)
+    return (median,P_alt,CI_left,CI_right)
 
 #=========================================================================
 # main()
 #=========================================================================
 (options,args)=getopt.getopt(sys.argv[1:],"s:")
-if(len(args)!=7):
-    exit(ProgramName.get()+" [-s file] <model> <input.essex> <samples-dir-or-dot> <#MCMC-samples> <firstGene-lastGene> <beta-shrinkage-parm> <lambda=1.2>\n   -s = save raw STAN file\n   gene range is zero-based and inclusive\n   use . for samples-dir if no samples desired")
-(model,inputFile,samplesDir,numSamples,geneRange,sigma,Lambda)=args
+if(len(args)!=5):
+    exit(ProgramName.get()+" [-s file] <model> <input.essex> <#MCMC-samples> <firstGene-lastGene> <lambda=1.2>\n   -s = save raw STAN file\n   gene range is zero-based and inclusive\n")
+(model,inputFile,numSamples,geneRange,Lambda)=args
 stanFile=None
 for pair in options:
     (key,value)=pair
@@ -270,13 +157,11 @@ if(not rex.find("(\d+)-(\d+)",geneRange)):
 firstIndex=int(rex[1])
 lastIndex=int(rex[2])
 Lambda=float(Lambda)
-#Pipe.run("rm -r "+samplesDir)
-#Pipe.run("mkdir "+samplesDir)
 
 # Process each gene
 geneIndex=0
 parser=EssexParser(inputFile)
-print("Gene\tSignif\tP(reg)\tFoldChg\t95%CredIntv")
+print("Gene\tP(ASE)\tFoldChg\t95%CredIntv")
 while(True):
     elem=parser.nextElem()
     if(elem is None): break
@@ -287,27 +172,13 @@ while(True):
     elif(geneIndex>lastIndex): break
     gene=parseGene(elem)
     if(gene is None): continue
-    if(ONLY_2BIN): gene.dropReps(6)
-    elif(ONLY_6BIN): gene.dropReps(2)
-    if(gene.numGuides()==0): 
-        geneIndex+=1
-        continue
-    if(REVERSE_BINS): gene.reverseBins()
-    if(IGNORE_MIDDLE_BINS): gene.dropMiddleBins()
-    elif(ONLY_MIDDLE_BINS): gene.onlyMiddleBins()
-    if(SHOULD_INITIALIZE):
-        writeInitializationFile(INIT_FILE,gene)
     outfile="" if samplesDir=="." else samplesDir+"/"+gene.ID+".samples"
-    (Preg,posterior,lowerCI,upperCI)=\
-        runGene(gene,model,numSamples,outfile,sigma,Lambda)
-    Preg=round(Preg,3)
-    posterior=round(posterior,3)
-    lowerCI=round(lowerCI,3); upperCI=round(upperCI,3)
-    regulatory="no"
-    if(Preg>=0.7): regulatory="maybe"
-    if(Preg>=0.9): regulatory="yes"
-    print(gene.ID,regulatory,Preg,posterior,str(lowerCI)+"-"+str(upperCI),
-          sep="\t")
+    (median,P_alt,CI_left,CI_right)=runGene(stan,gene,numSamples,probDenovo,
+                                            probRecomb,probAffected,Lambda)
+    P_alt=round(P_alt,3)
+    median=round(median,3)
+    CI_left=round(CI_left,3); CI_left=round(CI_right,3)
+    print(gene.ID,P_alt,median,str(lowerCI)+"-"+str(upperCI),sep="\t")
     geneIndex+=1
 os.remove(STDERR)
 os.remove(INPUT_FILE)

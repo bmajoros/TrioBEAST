@@ -128,7 +128,7 @@ transformed data {
    real logNoRecomb=log(1-probRecomb);
 }
 parameters {
-   real<lower=0> theta; // amount of ASE
+   real<lower=0.000001,upper=1> theta; // amount of ASE
 }
 transformed parameters {
    real p = theta / (1 + theta);

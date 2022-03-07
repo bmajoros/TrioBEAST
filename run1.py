@@ -160,26 +160,33 @@ def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,
     P_alt=max(left,right)
 
     # Estimate mode of inheritance
-    getInheritanceMode(parser)
+    modes=getInheritanceMode(parser)
 
     # Return estimates
-    return (median,P_alt,CI_left,CI_right)
+    return (median,P_alt,CI_left,CI_right,modes)
 
 def getInheritancePosterior(i,parser,denom):
     array=[]
+    #debug=[] ###
     numer=parser.getVariable("numerator."+str(i+1))
     numSamples=len(numer)
     for j in range(numSamples):
         posterior=math.exp(numer[j]-denom[j]);
+        #debug.append(numer[j]) ###
         array.append(posterior)
+    #print("XXX",i,sum(debug)/len(debug),sum(array)/len(array))
     return sum(array)/len(array)
 
 def getInheritanceMode(parser):
+    pairs=[]
     denom=parser.getVariable("denominator");
     for i in range(11):
         posterior=getInheritancePosterior(i,parser,denom)
-        print(round(posterior,3),MODES[i])
-            
+        if(posterior<0.01): continue
+        pairs.append([posterior,i])
+        #print(round(posterior,3),MODES[i])
+    pairs.sort(key=lambda x: 1-x[0])
+    return pairs
 
 #=========================================================================
 # main()
@@ -199,6 +206,8 @@ firstIndex=int(rex[1])
 lastIndex=int(rex[2])
 Lambda=float(Lambda)
 
+#print(OUTPUT_TEMP) ###
+
 # Process each gene
 geneIndex=0
 parser=EssexParser(inputFile)
@@ -215,12 +224,15 @@ while(True):
     if(gene is None): continue
     #outfile="" if samplesDir=="." else samplesDir+"/"+gene.ID+".samples"
     stan=Stan(model)
-    (median,P_alt,CI_left,CI_right)=runGene(stan,gene,numSamples,probDenovo,
-                                            probRecomb,probAffected,Lambda)
+    (median,P_alt,CI_left,CI_right,modes)=\
+      runGene(stan,gene,numSamples,probDenovo,
+              probRecomb,probAffected,Lambda)
     P_alt=round(P_alt,3)
     median=round(median,3)
     CI_left=round(CI_left,3); CI_right=round(CI_right,3)
     print(gene.ID,P_alt,median,str(CI_left)+"-"+str(CI_right),sep="\t")
+    for mode in modes:
+        print("\t",round(mode[0]*100),"% : ",MODES[mode[1]],sep="")
     geneIndex+=1
 os.remove(STDERR)
 os.remove(INPUT_FILE)

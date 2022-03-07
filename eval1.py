@@ -68,6 +68,17 @@ def isCorrect(trueMother,trueFather,trueChild,predMother,predFather,predChild):
 def compact(mother,father,child):
     return mother[0]+mother[1]+" "+father[0]+father[1]+" "+child[0]+child[1]
 
+def isAffected(pair):
+    return int(pair[0])>0 or int(pair[1])>0
+
+def hasHets(root,indiv):
+    sites=root.findChildren("site")
+    for site in sites:
+        node=site.findChild("genotypes").findChild(indiv)
+        if(node is None): raise Exception("Can't find node in hasHets")
+        if(node[0]!=node[1]): return True
+    return False
+
 #=========================================================================
 # main()
 #=========================================================================
@@ -77,7 +88,8 @@ if(len(sys.argv)!=3):
 
 essexReader=EssexParser(truthFile)
 predReader=BufferedReader(outputFile)
-right=0; wrong=0
+numTrios=0; right=0; wrong=0
+triosWithEvidence=0; rightWithEvidence=0; wrongWithEvidence=0
 while(True):
     root=essexReader.nextElem()
     if(root is None): break
@@ -85,19 +97,32 @@ while(True):
     if(prediction is None): break
     (ID,Palt,theta,posterior,mother,father,child)=prediction
     if(ID!=root[0]): raise Exception(ID+" != "+root[0]);
+    numTrios+=1
     sxAffected=root.findChild("affected")
     trueMother=getAffected(sxAffected,"mother")
     trueFather=getAffected(sxAffected,"father")
     trueChild=getAffected(sxAffected,"child")
+    hasEvidence=0
+    if(isAffected(trueMother) and hasHets(root,"mother") or
+       isAffected(trueFather) and hasHets(root,"father") or
+       isAffected(trueChild) and hasHets(root,"child")):
+        hasEvidence=1
+    if(hasEvidence): triosWithEvidence+=1
     if(isCorrect(trueMother,trueFather,trueChild,mother,father,child)):
         right+=1
+        if(hasEvidence): rightWithEvidence+=1
     else:
         wrong+=1
+        if(hasEvidence): wrongWithEvidence+=1
        #print(ID,compact(trueMother,trueFather,trueChild),"<=>",
        #      compact(mother,father,child))
 N=right+wrong
 acc=float(right)/float(N)
-print(round(acc*100,3),"correct")
-
+print(round(acc*100,3),"% correct",sep="")
+print(triosWithEvidence," trios with evidence, out of ",numTrios,sep="")
+accWithEvidence=float(rightWithEvidence)/ \
+                 float(rightWithEvidence+wrongWithEvidence)
+print(round(accWithEvidence*100,3),"% correct among trios with evidence",
+      sep="")
 
 

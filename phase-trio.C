@@ -14,6 +14,10 @@
 using namespace std;
 using namespace BOOM;
 
+enum Individual { MOTHER=0, FATHER=1, CHILD=2 };
+enum Allele { REF=0, ALT=1 };
+enum MaternalPaternal { MAT=0, PAT=1 };
+
 class Application {
   Map<String,String> phasingMap;
   void initMap(Map<String,String> &);
@@ -117,9 +121,11 @@ void Application::phaseCounts(Genotype mother,Genotype father,Genotype child,
 void Application::phaseCounts(Genotype G,String label,Essex::Node *counts)
 {
   // PRECONDITION: genotype has two alleles
+  // Prior to this function, the counts are ordered REF/ALT, but after
+  // this function, they will be ordered MAT/PAT
 
   if(!G.isHet()) return;
-  if(G[0]==1) swapCounts(counts,label);
+  if(G[MAT]==ALT) swapCounts(counts,label);
 }
 
 

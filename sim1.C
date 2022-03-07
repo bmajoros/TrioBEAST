@@ -414,11 +414,23 @@ void Application::simCounts(const float theta,
 	counts[site][indiv][allele]=N; counts[site][indiv][otherAllele]=0;
 	continue; }
       const bool hasASE=V[indiv][0]!=V[indiv][1];
+      /*
       const float myTheta=hasASE ? theta : 1.0;
       const float p=myTheta/(myTheta+1);
       GSL::GslBinomial binom(p);
       const int maternal=binom.random(N);
       const int alt=g[MAT]==ALT ? maternal : N-maternal;
+      const int ref=N-alt;
+      counts[site][indiv][REF]=ref;
+      counts[site][indiv][ALT]=alt;
+      */
+      float myTheta=hasASE ? theta : 1.0;
+      if(V[indiv][PAT]) myTheta=1/myTheta; // Now theta is relative to maternal
+      const float p=myTheta/(myTheta+1);
+      GSL::GslBinomial binom(p);
+      const int maternal=binom.random(N);
+      const int paternal=N-maternal;
+      const int alt=g[MAT]==ALT ? maternal : paternal;
       const int ref=N-alt;
       counts[site][indiv][REF]=ref;
       counts[site][indiv][ALT]=alt;

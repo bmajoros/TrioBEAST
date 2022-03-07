@@ -23,11 +23,11 @@ real likelihoods(int[,,] count,int[,] het,real logAffected,
       
    for(i in 1:11) array[i]=0.0;
 
-   // MM FF CC (Mother Father Child)
-   // 00 00 00 = all unaffected
    for(i in 1:N_SITES) {
       if(!isPhased[i]) continue; // ### Need to relax this (later)
 
+      // MM FF CC (Mother Father Child)
+      // 00 00 00 = all unaffected
       array[1]+=
         binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],0.5)//M
       + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],0.5)//F
@@ -148,11 +148,11 @@ generated quantities {
 
    for(i in 1:11) numerator[i]=0.0;
 
-   // MM FF CC (Mother Father Child)
-   // 00 00 00 = all unaffected
    for(i in 1:N_SITES) {
       if(!isPhased[i]) continue; // ### Need to relax this (later)
 
+      // MM FF CC (Mother Father Child)
+      // 00 00 00 = all unaffected
       numerator[1]+=
         binom_lpmf(count[i,1,1]|count[i,1,1]+count[i,1,2],het[i,1],0.5)//M
       + binom_lpmf(count[i,2,1]|count[i,2,1]+count[i,2,2],het[i,2],0.5)//F

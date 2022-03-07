@@ -32,6 +32,19 @@ INPUT_FILE=TempFilename.generate(".staninputs")
 INIT_FILE=TempFilename.generate(".staninit")
 OUTPUT_TEMP=TempFilename.generate(".stanoutputs")
 
+MODES = [ "00 00 00 = all unaffected",
+"00 00 10 = child has a de novo in the causal variant",
+"00 00 01 = child has a de novo in the causal variant",
+"01 00 00 = mother affected, child doesn't inherit",
+"01 00 10 = mother affected and recombines, child inherits",
+"00 01 00 = father affected, child doesn't inherit",
+"00 01 00 = father affected and recombines, child inherits",
+"10 00 10 = mother affected, child inherits",
+"10 00 00 = mother affected and recombines, child doesn't inherit",
+"00 10 01 = father affected, child inherits",
+"00 10 00 = father affected and recombines, child doesn't inherit"
+]
+
 #=========================================================================
 class Site:
     def __init__(self,ID,phased):
@@ -146,8 +159,27 @@ def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,
     #P_alt=left+right
     P_alt=max(left,right)
 
+    # Estimate mode of inheritance
+    getInheritanceMode(parser)
+
     # Return estimates
     return (median,P_alt,CI_left,CI_right)
+
+def getInheritancePosterior(i,parser,denom):
+    array=[]
+    numer=parser.getVariable("numerator."+str(i+1))
+    numSamples=len(numer)
+    for j in range(numSamples):
+        posterior=math.exp(numer[j]-denom[j]);
+        array.append(posterior)
+    return sum(array)/len(array)
+
+def getInheritanceMode(parser):
+    denom=parser.getVariable("denominator");
+    for i in range(11):
+        posterior=getInheritancePosterior(i,parser,denom)
+        print(round(posterior,3),MODES[i])
+            
 
 #=========================================================================
 # main()

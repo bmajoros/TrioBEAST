@@ -237,8 +237,8 @@ void Application::initMap(Map<String,String> &M)
   M["110101"]="110110";
   M["110111"]="111011";
   M["111111"]="111111";
+  M["010101"]="100110"; // triple het => phase arbitrarily & marginalize later
 
-  //M["010101"]=""; TRIP HET, CAN'T PHASE
   //M["110000"]=""; DE NOVO
   //M["000001"]=""; DE NOVO, CAN'T PHASE
   //M["000010"]=""; DE NOVO, CAN'T PHASE
@@ -298,14 +298,15 @@ bool Application::phase(Genotype &mother,Genotype &father,Genotype &child)
 
   const String encoded=
     compactString(mother)+compactString(father)+compactString(child);
-  if(encoded=="010101") return false; // triple het, can't phase
+  bool canPhase=true;
+  if(encoded=="010101") canPhase=false; //return false; // triple het
   if(!phasingMap.isDefined(encoded))
     throw String("Genotype encoding is not defined: ")+encoded;
   String phased=phasingMap[encoded];
   install(phased,0,1,mother);
   install(phased,2,3,father);
   install(phased,4,5,child);
-  return true;
+  return canPhase;
 }
 
 

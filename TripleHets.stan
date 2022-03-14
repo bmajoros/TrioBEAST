@@ -35,9 +35,9 @@ real computeElem(int[,,] count,int[,] het,int[] isPhased,int site,
          + binom_lpmf(FC | FN,het[site,2],FP) // Father
          + binom_lpmf(CC | CN,het[site,3],CP);// Child
       real phase2=
-           binom_lpmf(MC | MN,het[site,1],MP) // Mother
-         + binom_lpmf(FC | FN,het[site,2],FP) // Father
-         + binom_lpmf(CC | CN,het[site,3],CP);// Child
+           binom_lpmf(MC | MN,het[site,1],1-MP) // Mother
+         + binom_lpmf(FC | FN,het[site,2],1-FP) // Father
+         + binom_lpmf(CC | CN,het[site,3],1-CP);// Child
       return log_sum_exp(phase1,phase2);
    }       
 }

@@ -14,6 +14,7 @@
 #include "BOOM/Array1D.H"
 #include "BOOM/Array2D.H"
 #include "BOOM/Array3D.H"
+#include "BOOM/Regex.H"
 using namespace std;
 using namespace BOOM;
 
@@ -22,13 +23,17 @@ enum Allele { REF=0, ALT=1 };
 enum MaternalPaternal { MAT=0, PAT=1 };
 
 class Application {
+  Regex geneRegex;
+  String currentGene;
+  VariantAndGenotypes buffer;
+  bool buffered; // true if there is something in the buffer
   int motherIndex, fatherIndex; // Indices in VCF #CHROM line
   Array1D<bool> parentMaternal; // For this parent, which copy is passed down
   Array2D<int> V; // Affected status; indexed as: V[individual][mat/pat]
   Array3D<int> counts; // Indexed as V[site][individual][ref/alt]
   float RECOMB; // Recombination rate (between gene and causal variant)
   Array1D<bool> recombined; // indexed by Individual
-  VariantAndGenotypes simNext(VcfReader &);
+  bool simNext(VcfReader &,VariantAndGenotypes &);
   Genotype simGenotype(const Genotype &mother,const Genotype &father);
   bool sameHomozygotes(const Genotype &mother,const Genotype &father);
   void chooseInheritedCopies();
@@ -52,6 +57,7 @@ class Application {
   String unphased(const Genotype &);
   void simCounts(const float theta,const Vector<VariantAndGenotypes> &,
 		 const int total,Array3D<int> &counts);
+  String getGene(const Variant &);
 public:
   Application();
   int main(int argc,char *argv[]);
@@ -75,7 +81,8 @@ int main(int argc,char *argv[])
 
 
 Application::Application()
-  : V(3,2), parentMaternal(2), recombined(2)
+  : V(3,2), parentMaternal(2), recombined(2), geneRegex("^([^:]+):"),
+    buffered(false)
 {
   // ctor
 
@@ -88,20 +95,18 @@ int Application::main(int argc,char *argv[])
 {
   // Process command line
   CommandLine cmd(argc,argv,"");
-  if(cmd.numArgs()!=10)
-    throw String("sim1 <in.vcf> <mother-ID> <father-ID> <#genes> <variants-per-gene> <reads-per-site> <recombination-rate> <theta> <out-truth.essex> <out-data.essex>");
+  if(cmd.numArgs()!=9)
+    throw String("sim2 <in.vcf> <mother-ID> <father-ID> <#genes> <reads-per-site> <recombination-rate> <theta> <out-truth.essex> <out-data.essex>");
   const String VCF_FILE=cmd.arg(0);
   const String MOTHER_ID=cmd.arg(1);
   const String FATHER_ID=cmd.arg(2);
   const int NUM_GENES=cmd.arg(3).asInt();
-  const int VARIANTS_PER_GENE=cmd.arg(4).asInt();
-  const int READS_PER_SITE=cmd.arg(5).asInt();
-  RECOMB=cmd.arg(6).asFloat();
-  const float THETA=cmd.arg(7).asFloat();
-  const String truthFileName=cmd.arg(8);
-  const String dataFileName=cmd.arg(9);
+  const int READS_PER_SITE=cmd.arg(4).asInt();
+  RECOMB=cmd.arg(5).asFloat();
+  const float THETA=cmd.arg(6).asFloat();
+  const String truthFileName=cmd.arg(7);
+  const String dataFileName=cmd.arg(8);
 
-  counts.resize(VARIANTS_PER_GENE,3,2); // sites, individuals, alleles
   ofstream truthFile(truthFileName), dataFile(dataFileName);
   VcfReader reader(VCF_FILE);
   reader.hashSampleIDs();
@@ -111,8 +116,10 @@ int Application::main(int argc,char *argv[])
     simAffectedStatus();
     chooseInheritedCopies();
     Vector<VariantAndGenotypes> variants;
-    for(int varNum=0 ; varNum<VARIANTS_PER_GENE ; ++varNum)
-      variants.push_back(simNext(reader));
+    VariantAndGenotypes vg;
+    while(simNext(reader,vg)) variants.push_back(vg);
+    if(variants.size()<1) { --geneNum; continue; }
+    counts.resize(variants.size(),3,2); // sites, individuals, alleles
     simCounts(THETA,variants,READS_PER_SITE,counts);
     writeTruth(geneNum,variants,THETA,READS_PER_SITE,truthFile);
     writeData(geneNum,variants,counts,READS_PER_SITE,dataFile);
@@ -238,17 +245,38 @@ void Application::chooseInheritedCopies()
 
 
 
-VariantAndGenotypes Application::simNext(VcfReader &reader)
+String Application::getGene(const Variant &v)
+{
+  if(!geneRegex.search(v.getID()))
+    throw String("Can't parse variant ID: ")+v.getID();
+  return geneRegex[1];
+}
+
+
+
+bool Application::simNext(VcfReader &reader,VariantAndGenotypes &ref)
 {
   VariantAndGenotypes vg;
   while(true) {
-    if(!reader.nextVariant(vg)) {
+    if(buffered) {
+      vg=buffer;
+      buffered=false;
+      currentGene=getGene(vg.variant);
+    }
+    else if(!reader.nextVariant(vg)) {
       reader.rewind();
       if(!reader.nextVariant(vg)) throw "Cannot rewind in simNext()";
     }
     const Variant v=vg.variant;
     if(v.containsNonstandardAlleles() || v.isIndel() ||
        v.numAlleles()!=2) continue;
+    String geneID=getGene(v);
+    if(currentGene!="" && geneID!=currentGene) {
+      buffer=vg;
+      buffered=true;
+      return false;
+    }
+    currentGene=geneID;
     const Vector<Genotype> &genotypes=vg.genotypes;
     const Genotype motherGT=genotypes[motherIndex];
     const Genotype fatherGT=genotypes[fatherIndex];
@@ -259,7 +287,8 @@ VariantAndGenotypes Application::simNext(VcfReader &reader)
     r.genotypes.push_back(motherGT);
     r.genotypes.push_back(fatherGT);
     r.genotypes.push_back(childGT);
-    return r;
+    ref=r;
+    return true;
   }
 }
 

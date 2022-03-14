@@ -7,6 +7,17 @@ BOOM		= BOOM
 OBJ		= obj
 LIBS		= -LBOOM -lBOOM -lgsl -lm -lgslcblas
 #---------------------------------------------------------
+$(OBJ)/sim2.o:\
+		sim2.C
+	$(CC) $(CFLAGS) -o $(OBJ)/sim2.o -c \
+		sim2.C
+#---------------------------------------------------------
+sim2: \
+		$(OBJ)/sim2.o
+	$(CC) $(LDFLAGS) -o sim2 \
+		$(OBJ)/sim2.o \
+		$(LIBS)
+#---------------------------------------------------------
 $(OBJ)/sim1.o:\
 		sim1.C
 	$(CC) $(CFLAGS) -o $(OBJ)/sim1.o -c \

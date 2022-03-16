@@ -25,14 +25,22 @@ def getChromLine(filename):
             return line
     return None
 
+def getSampleIndex(chromLine,ID):
+    fields=chromLine.rstrip().split()
+    for i in range(len(fields)):
+        if(fields[i]==ID): return i
+    return -1
+
 #=========================================================================
 # main()
 #=========================================================================
-if(len(sys.argv)!=3):
-    exit(ProgramName.get()+" <*.gtf> <indexed.vcf.gz>\n")
-(gffFile,vcfFile)=sys.argv[1:]
+if(len(sys.argv)!=5):
+    exit(ProgramName.get()+" <*.gtf> <indexed.vcf.gz> <sampleID1> <sampleID2>\n")
+(gffFile,vcfFile,ID1,ID2)=sys.argv[1:]
 
 chromLine=getChromLine(vcfFile)
+index1=getSampleIndex(chromLine,ID1)
+index2=getSampleIndex(chromLine,ID2)
 print(chromLine)
 reader=GffTranscriptReader()
 genes=reader.loadGenes(gffFile)
@@ -48,6 +56,8 @@ for gene in genes:
             line=pipe.readline()
             if(line is None or line==""): break
             fields=line.rstrip().split()
+            GT1=fields[index1]; GT2=fields[index2]
+            if(GT1==GT2 and (GT1=="0|0" or GT1=="1|1")): continue
             fields[2]=geneID+":"+fields[2]
             line="\t".join(fields)
             print(line)

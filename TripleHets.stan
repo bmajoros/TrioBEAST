@@ -30,11 +30,11 @@ real computeElem(int[,,] count,int[,] het,int[] isPhased,int site,
          + binom_lpmf(FC | FN,het[site,2],FP) // Father
          + binom_lpmf(CC | CN,het[site,3],CP);// Child
    else {
-      real phase1=
+      real phase1=log(0.5) +
            binom_lpmf(MC | MN,het[site,1],MP) // Mother
          + binom_lpmf(FC | FN,het[site,2],FP) // Father
          + binom_lpmf(CC | CN,het[site,3],CP);// Child
-      real phase2=
+      real phase2=log(0.5) +
            binom_lpmf(MC | MN,het[site,1],1-MP) // Mother
          + binom_lpmf(FC | FN,het[site,2],1-FP) // Father
          + binom_lpmf(CC | CN,het[site,3],1-CP);// Child

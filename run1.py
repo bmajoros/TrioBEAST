@@ -102,7 +102,7 @@ def getFieldIndex(label,fields):
         if(fields[i]==label): index=i
     return index
 
-def writeInitializationFile(filename,gene):
+def writeInitializationFile(filename):
     OUT=open(filename,"wt")
     print("theta <- 1",file=OUT)
     OUT.close()
@@ -139,7 +139,8 @@ def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,
             Lambda):
     # Write inputs file for STAN
     writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,INPUT_FILE)
-
+    writeInitializationFile(INIT_FILE)
+    
     # Run STAN model
     if(DEBUG):
         cmd=stan.getCmd(WARMUP,numSamples,INPUT_FILE,OUTPUT_TEMP,STDERR,

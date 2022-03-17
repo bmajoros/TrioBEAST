@@ -15,7 +15,7 @@ from Pipe import Pipe
 NUM_GENES=1000
 SITES_PER_GENE=[2, 5, 10, 15]
 READS_PER_SITE=[5, 10, 15, 20, 25, 30]
-THETAS=[0.5, 0.4, 0.3, 0.2, 0.1]
+THETAS=[0.2, 0.5, 0.6, 0.7, 0.8, 0.9]
 RECOMB_RATE=0.001
 BASE="/hpc/group/majoroslab/trios"
 
@@ -28,7 +28,7 @@ def sim(sites,reads,theta,vcfFile,motherID,fatherID,outDir):
     cmd=BASE+"/git/sim1 "+vcfFile+" "+motherID+" "+fatherID+" "+\
         str(NUM_GENES)+" "+str(sites)+" "+str(reads)+" "+str(RECOMB_RATE)+\
         " "+str(theta)+" "+truthFile+" "+dataFile
-    #print(cmd)
+    print(cmd)
     Pipe.run(cmd)
     
 #=========================================================================

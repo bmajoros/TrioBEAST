@@ -30,6 +30,7 @@ def isHet(gt):
     return gt[0]!=gt[1]
 
 def parseGene(sxGene,indivID):
+    geneID=sxGene[0]
     sites=sxGene.findChildren("site")
     countsArray=[]
     phasedArray=[]
@@ -42,7 +43,7 @@ def parseGene(sxGene,indivID):
         countsArray.append(counts)
         phased=int(sxSite.getAttribute("phased"))
         phasedArray.append(phased)
-    return (countsArray,phasedArray)
+    return (geneID,countsArray,phasedArray)
 
 def writeInitializationFile(filename):
     OUT=open(filename,"wt")
@@ -107,12 +108,15 @@ LAMBDA=float(LAMBDA)
 
 stan=Stan(modelFile)
 parser=EssexParser(dataFile)
-print("median\tP(alt)\tCI_left\tCI_right")
+print("gene\tmedian\tP(alt)\tCI_left\tCI_right")
 while(True):
     sxGene=parser.nextElem()
     if(sxGene is None): break
-    (counts,phased)=parseGene(sxGene,indivID)
-    if(len(counts)==0): continue
+    (geneID,counts,phased)=parseGene(sxGene,indivID)
+    if(len(counts)==0):
+        (median,P_alt,CI_left,CI_right)=(1,0,0,1000)
+        print(geneID,median,P_alt,CI_left,CI_right,sep="\t")
+        continue
     (median,P_alt,CI_left,CI_right)=\
         run(stan,counts,phased,NUM_SAMPLES,LAMBDA)
-    print(median,P_alt,CI_left,CI_right,sep="\t")
+    print(geneID,median,P_alt,CI_left,CI_right,sep="\t")

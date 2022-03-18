@@ -16,43 +16,13 @@ from EssexParser import EssexParser
 from Rex import Rex
 rex=Rex()
 
-class BufferedReader:
-    def __init__(self,filename):
-        self.fh=open(filename,"rt")
-        self.fh.readline() # discard the header line
-        self.buffer=None
-    def nextPred(self):
-        if(self.buffer is not None):
-            temp=self.buffer
-            self.buffer=None
-            return temp
-        while(True):
-            line=self.fh.readline()
-            while(not rex.find("^GENE",line)): 
-                line=self.fh.readline()
-                if(line is None): return None
-            fields=line.rstrip().split()
-            (ID,Palt,theta,CI)=fields
-            line=self.fh.readline()
-            if(not rex.find("(\d)% : (\d)(\d) (\d)(\d) (\d)(\d)",line)):
-                raise Exception("Can't parse: "+line)
-            posterior=rex[1]; mother=[rex[2],rex[3]];
-            father=[rex[4],rex[5]]; child=[rex[6],rex[7]]
-            return [ID,Palt,theta,posterior,mother,father,child]
-          
 def getAffected(node,label):
     child=node.findChild(label)
-    return [child[0],child[1]]
+    return int(child[0])>0 or int(child[1])>0
 
 def isCorrect(trueMother,trueFather,trueChild,predMother,predFather,predChild):
     return trueMother==predMother and trueFather==predFather and \
         trueChild==predChild
-
-def compact(mother,father,child):
-    return mother[0]+mother[1]+" "+father[0]+father[1]+" "+child[0]+child[1]
-
-def isAffected(pair):
-    return int(pair[0])>0 or int(pair[1])>0
 
 def hasHets(root,indiv):
     sites=root.findChildren("site")
@@ -62,43 +32,69 @@ def hasHets(root,indiv):
         if(node[0]!=node[1]): return True
     return False
 
+def loadPreds(predDir,indiv,parmString):
+    preds=[]
+    filename=predDir+"/indiv-"+indiv+"-"+parmString+".txt"
+    with open(filename,"rt") as IN:
+        header=IN.readline()
+        for line in IN:
+            fields=line.rstrip().split()
+            if(len(fields)!=4): raise Exception("Can't parse: "+line)
+            (median,Palt,left,right)=fields
+            preds.append(float(Palt))
+    return preds
+
+def predict(Palt,threshold):
+    return Palt>=threshold
+
 #=========================================================================
 # main()
 #=========================================================================
-if(len(sys.argv)!=3):
-    exit(ProgramName.get()+" <truth.essex> <model-output>\n")
-(truthFile,outputFile)=sys.argv[1:]
+if(len(sys.argv)!=4):
+    exit(ProgramName.get()+" <truth.essex> <predictions-dir> <posterior-threshold>\n")
+(truthFile,predDir,threshold)=sys.argv[1:]
+threshold=float(threshold)
+
+rex.findOrDie("truth-(.*).essex",truthFile)
+parmString=rex[1]
+motherPreds=loadPreds(predDir,"mother",parmString)
+fatherPreds=loadPreds(predDir,"father",parmString)
+childPreds=loadPreds(predDir,"child",parmString)
 
 essexReader=EssexParser(truthFile)
-predReader=BufferedReader(outputFile)
 numTrios=0; right=0; wrong=0
 triosWithEvidence=0; rightWithEvidence=0; wrongWithEvidence=0
+geneIndex=0
 while(True):
     root=essexReader.nextElem()
     if(root is None): break
-    prediction=predReader.nextPred()
-    if(prediction is None): break
-    (ID,Palt,theta,posterior,mother,father,child)=prediction
-    if(ID!=root[0]): raise Exception(ID+" != "+root[0]);
     numTrios+=1
     sxAffected=root.findChild("affected")
     trueMother=getAffected(sxAffected,"mother")
     trueFather=getAffected(sxAffected,"father")
     trueChild=getAffected(sxAffected,"child")
     hasEvidence=0
-    if(isAffected(trueMother) and hasHets(root,"mother") or
-       isAffected(trueFather) and hasHets(root,"father") or
-       isAffected(trueChild) and hasHets(root,"child")):
+    if(trueMother and hasHets(root,"mother") or
+       trueFather and hasHets(root,"father") or
+       trueChild and hasHets(root,"child")):
         hasEvidence=1
     if(hasEvidence): triosWithEvidence+=1
-    if(isCorrect(trueMother,trueFather,trueChild,mother,father,child)):
+
+    motherPred=predict(motherPreds[geneIndex],threshold)
+    fatherPred=predict(fatherPreds[geneIndex],threshold)
+    childPred=predict(childPreds[geneIndex],threshold)
+
+    #print(trueMother,motherPred,trueFather,fatherPred,trueChild,childPred,sep="\t")
+
+    geneIndex+=1
+    
+    if(isCorrect(trueMother,trueFather,trueChild,motherPred,fatherPred,
+                 childPred)):
         right+=1
         if(hasEvidence): rightWithEvidence+=1
     else:
         wrong+=1
         if(hasEvidence): wrongWithEvidence+=1
-       #print(ID,compact(trueMother,trueFather,trueChild),"<=>",
-       #      compact(mother,father,child))
 N=right+wrong
 acc=float(right)/float(N)
 print(round(acc*100,3),"% correct",sep="")

@@ -104,7 +104,7 @@ def getFieldIndex(label,fields):
 
 def writeInitializationFile(filename):
     OUT=open(filename,"wt")
-    print("theta <- 1",file=OUT)
+    #print("theta <- 1",file=OUT)
     OUT.close()
 
 def writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,filename):

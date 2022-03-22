@@ -91,8 +91,8 @@ def run(stan,counts,phased,NUM_SAMPLES,LAMBDA):
     (median,CI_left,CI_right)=parser.getMedianAndCI(0.95,"theta")
     left=parser.getLeftTail("theta",1.0/LAMBDA)
     right=parser.getRightTail("theta",LAMBDA)
-    #P_alt=left+right
-    P_alt=max(left,right)
+    P_alt=left+right
+    #P_alt=max(left,right)
 
     # Return estimates
     return (median,P_alt,CI_left,CI_right)

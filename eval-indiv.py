@@ -39,8 +39,8 @@ def loadPreds(predDir,indiv,parmString):
         header=IN.readline()
         for line in IN:
             fields=line.rstrip().split()
-            if(len(fields)!=4): raise Exception("Can't parse: "+line)
-            (median,Palt,left,right)=fields
+            if(len(fields)!=5): raise Exception("Can't parse: "+line)
+            (geneID,median,Palt,left,right)=fields
             preds.append(float(Palt))
     return preds
 

@@ -222,7 +222,7 @@ generated quantities
    real numerator[27];
    real denominator;
 
-   for(i in 1:11) numerator[i]=0.0;
+   for(i in 1:27) numerator[i]=0.0;
 
    for(i in 1:N_SITES) {
       //if(!isPhased[i]) continue; // ### Need to relax this (later)

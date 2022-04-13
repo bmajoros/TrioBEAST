@@ -51,12 +51,10 @@ real likelihoods(int[,,] count,int[,] het,real logAffected,
    real logNoRecomb,real p,int N_SITES,int[] isPhased) 
 {
    // Sum over all possible assignments of affected status:
-   real array[11];
-   for(i in 1:11) array[i]=0.0;
+   real array[27];
+   for(i in 1:27) array[i]=0.0;
 
    for(i in 1:N_SITES) {
-      //if(!isPhased[i]) continue; // ### Need to relax this (later)
-
       // MM FF CC (Mother Father Child)
       // 00 00 00 = all unaffected
       array[1]+=computeElem(count,het,isPhased,i, 1,1,1, 0.5,0.5,0.5)
@@ -101,6 +99,80 @@ real likelihoods(int[,,] count,int[,] het,real logAffected,
       // 00 10 00 = father affected and recombines, child doesn't inherit
       array[11]+=computeElem(count,het,isPhased,i, 1,1,1, 0.5,p,0.5)
       + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
+
+      //--------------------- Multiple affected copies --------------------
+
+      // 01 01 00 = both parents affected, child doesn't inherit
+      array[12]+=computeElem(count,het,isPhased,i, 2,2,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
+
+      // 01 01 10 = both parents affected, one recombines, child inherits
+      array[13]+=computeElem(count,het,isPhased,i, 2,2,1, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 01 01 01 = both parents affected, one recombines, child inherits
+      array[14]+=computeElem(count,het,isPhased,i, 2,2,2, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 01 01 11 = both parents affected, both recombine, child inherits 2
+      array[15]+=computeElem(count,het,isPhased,i, 2,2,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logRecomb;
+
+      // 10 10 11 = both parents affected, child inherits 2 bad copies
+      array[16]+=computeElem(count,het,isPhased,i, 1,1,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
+
+      // 10 10 10 = both parents affected, one recombines, child inherits 1
+      array[17]+=computeElem(count,het,isPhased,i, 1,1,1, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 10 10 01 = both parents affected, one recombines, child inherits 1
+      array[18]+=computeElem(count,het,isPhased,i, 1,1,2, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 10 10 00 = both parents affected, both recombine, child inherits 0
+      array[19]+=computeElem(count,het,isPhased,i, 1,1,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logRecomb;
+
+      // 10 01 10 = both parents affected, child inherits 1 copy
+      array[20]+=computeElem(count,het,isPhased,i, 1,2,1, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
+
+      // 10 01 11 = both parents affected, 1 recombines, child inherits 2
+      array[21]+=computeElem(count,het,isPhased,i, 1,2,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 10 01 00 = both parents affected, 1 recombines, child inherits 0
+      array[22]+=computeElem(count,het,isPhased,i, 1,2,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 10 01 01 = both parents affected, 2 recombine, child inherits 1
+      array[23]+=computeElem(count,het,isPhased,i, 1,2,2, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logRecomb;
+
+      // 01 10 01 = both parents affected, child inherits 1 copy
+      array[24]+=computeElem(count,het,isPhased,i, 2,1,2, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
+
+      // 01 10 11 = both parents affected, 1 recombines child inherits 2
+      array[25]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 01 10 00 = both parents affected, 1 recombines child inherits 0
+      array[26]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 01 10 10 = both parents affected, child inherits 1 copy
+      array[27]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
    }
 
    return log_sum_exp(array);
@@ -147,7 +219,7 @@ model
 }
 generated quantities 
 {
-   real numerator[11];
+   real numerator[27];
    real denominator;
 
    for(i in 1:11) numerator[i]=0.0;
@@ -199,6 +271,80 @@ generated quantities
       // 00 10 00 = father affected and recombines, child doesn't inherit
       numerator[11]+=computeElem(count,het,isPhased,i, 1,1,1, 0.5,p,0.5)
       + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
+      
+      //--------------------- Multiple affected copies --------------------
+
+      // 01 01 00 = both parents affected, child doesn't inherit
+      numerator[12]+=computeElem(count,het,isPhased,i, 2,2,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
+
+      // 01 01 10 = both parents affected, one recombines, child inherits
+      numerator[13]+=computeElem(count,het,isPhased,i, 2,2,1, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 01 01 01 = both parents affected, one recombines, child inherits
+      numerator[14]+=computeElem(count,het,isPhased,i, 2,2,2, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 01 01 11 = both parents affected, both recombine, child inherits 2
+      numerator[15]+=computeElem(count,het,isPhased,i, 2,2,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logRecomb;
+
+      // 10 10 11 = both parents affected, child inherits 2 bad copies
+      numerator[16]+=computeElem(count,het,isPhased,i, 1,1,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
+
+      // 10 10 10 = both parents affected, one recombines, child inherits 1
+      numerator[17]+=computeElem(count,het,isPhased,i, 1,1,1, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 10 10 01 = both parents affected, one recombines, child inherits 1
+      numerator[18]+=computeElem(count,het,isPhased,i, 1,1,2, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 10 10 00 = both parents affected, both recombine, child inherits 0
+      numerator[19]+=computeElem(count,het,isPhased,i, 1,1,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logRecomb;
+
+      // 10 01 10 = both parents affected, child inherits 1 copy
+      numerator[20]+=computeElem(count,het,isPhased,i, 1,2,1, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
+
+      // 10 01 11 = both parents affected, 1 recombines, child inherits 2
+      numerator[21]+=computeElem(count,het,isPhased,i, 1,2,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 10 01 00 = both parents affected, 1 recombines, child inherits 0
+      numerator[22]+=computeElem(count,het,isPhased,i, 1,2,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 10 01 01 = both parents affected, 2 recombine, child inherits 1
+      numerator[23]+=computeElem(count,het,isPhased,i, 1,2,2, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logRecomb;
+
+      // 01 10 01 = both parents affected, child inherits 1 copy
+      numerator[24]+=computeElem(count,het,isPhased,i, 2,1,2, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
+
+      // 01 10 11 = both parents affected, 1 recombines child inherits 2
+      numerator[25]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 01 10 00 = both parents affected, 1 recombines child inherits 0
+      numerator[26]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,0.5)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
+      + logRecomb;
+
+      // 01 10 10 = both parents affected, child inherits 1 copy
+      numerator[27]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,p)
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
    }
    denominator=log_sum_exp(numerator);
 }

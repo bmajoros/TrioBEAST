@@ -27,20 +27,21 @@ def parseParmString(parmString):
     theta=float(parseParm(parmString,"theta"))
     return (sites,reads,theta)
 
-def evalModel(parmString,dataDir,outputsDir,threshold):
+def evalTrioModel(parmString,dataDir,outputsDir):
     truth=dataDir+"/truth-"+parmString+".essex"
-    cmd="git/eval-indiv.py "+truth+" "+outputsDir+" "+threshold
+    predictions=outputsDir+"/trio-"+parmString+".txt"
+    cmd="git/eval1.py "+truth+" "+predictions
     text=Pipe.run(cmd)
-    rex.findOrDie("(.*)% correct among trios with evidence",text)
-    acc=float(rex[1])/100.0
+    rex.findOrDie("(.*)% correct",text)
+    acc=float(rex[1])/100
     return acc
     
 #=========================================================================
 # main()
 #=========================================================================
-if(len(sys.argv)!=4):
-    exit(ProgramName.get()+" <data-dir> <outputs-dir> <p-threshold>\n")
-(dataDir,outputsDir,threshold)=sys.argv[1:]
+if(len(sys.argv)!=3):
+    exit(ProgramName.get()+" <data-dir> <outputs-dir>\n")
+(dataDir,outputsDir)=sys.argv[1:]
 
 print("sites\treads\ttheta\tacc")
 files=os.listdir(dataDir)
@@ -48,7 +49,7 @@ for filename in files:
     if(not rex.find("truth-(.+).essex",filename)): continue
     parmString=rex[1]
     (sites,reads,theta)=parseParmString(parmString)
-    trioAcc=evalModel(parmString,dataDir,outputsDir,threshold)
+    trioAcc=evalTrioModel(parmString,dataDir,outputsDir)
     print(sites,reads,theta,round(trioAcc,2),sep="\t")
     
 

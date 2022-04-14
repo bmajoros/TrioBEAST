@@ -44,7 +44,23 @@ MODES = [ "00 00 00 = all unaffected",
 "00 10 01 = father affected, child inherits",
 "00 10 00 = father affected and recombines, child doesn't inherit"
 ]
+NUM_MODES=11
 
+# Modes with child ASE: 1, 2, 4, 7, 9
+
+#=========================================================================
+class Mode:
+    def __init__(self,index,posterior):
+        self.index=index
+        self.posterior=posterior
+    def getDescription(self):
+        return MODES[self.index]
+    def isChildAffected(self):
+        desc=self.getDescription()
+        if(not rex.find("^\d\d \d\d (\d\d)",desc)):
+            raise Exception("Cannot parse: "+desc)
+        childGT=rex[1]
+        return childGT[0]=="1" or childGT[1]=="1"
 #=========================================================================
 class Site:
     def __init__(self,ID,phased):
@@ -132,8 +148,6 @@ def writeInputsFile(stan,gene,probDenovo,probRecomb,probAffected,filename):
     stan.writeOneDimArray("isPhased",phased,N_SITES,OUT)
 
     # Probabilities
-    #print("probDenovo <- ",probDenovo,file=OUT)
-    #print("probRecomb <- ",probRecomb,file=OUT)
     print("probAffected <- ",probAffected,file=OUT)
     OUT.close()
 
@@ -170,26 +184,27 @@ def runGene(stan,gene,numSamples,probDenovo,probRecomb,probAffected,
 
 def getInheritancePosterior(i,parser,denom):
     array=[]
-    #debug=[] ###
     numer=parser.getVariable("numerator."+str(i+1))
     numSamples=len(numer)
     for j in range(numSamples):
         posterior=math.exp(numer[j]-denom[j]);
-        #debug.append(numer[j]) ###
         array.append(posterior)
-    #print("XXX",i,sum(debug)/len(debug),sum(array)/len(array))
     return sum(array)/len(array)
 
 def getInheritanceMode(parser):
-    pairs=[]
+    modes=[]
     denom=parser.getVariable("denominator");
-    for i in range(11):
+    for i in range(NUM_MODES):
         posterior=getInheritancePosterior(i,parser,denom)
-        if(posterior<0.01): continue
-        pairs.append([posterior,i])
-        #print(round(posterior,3),MODES[i])
-    pairs.sort(key=lambda x: 1-x[0])
-    return pairs
+        modes.append(Mode(i,posterior))
+    modes.sort(key=lambda x: 1-x.posterior)
+    return modes
+
+def probChildIsAffected(modes):
+    total=0
+    for mode in modes:
+        if(mode.isChildAffected()): total+=mode.posterior
+    return total
 
 #=========================================================================
 # main()
@@ -214,7 +229,7 @@ Lambda=float(Lambda)
 # Process each gene
 geneIndex=0
 parser=EssexParser(inputFile)
-print("Gene\tP(ASE)\tFoldChg\t95%CredIntv")
+print("Gene\tP(ASE)\tFoldChg\t95%CredIntv\tP(child_affect)")
 while(True):
     elem=parser.nextElem()
     if(elem is None): break
@@ -225,17 +240,20 @@ while(True):
     elif(geneIndex>lastIndex): break
     gene=parseGene(elem)
     if(gene is None): continue
-    #outfile="" if samplesDir=="." else samplesDir+"/"+gene.ID+".samples"
     stan=Stan(model)
     (median,P_alt,CI_left,CI_right,modes)=\
       runGene(stan,gene,numSamples,probDenovo,
               probRecomb,probAffected,Lambda)
+    probChildAffected=probChildIsAffected(modes)
     P_alt=round(P_alt,3)
     median=round(median,3)
     CI_left=round(CI_left,3); CI_right=round(CI_right,3)
-    print(gene.ID,P_alt,median,str(CI_left)+"-"+str(CI_right),sep="\t")
+    print(gene.ID,P_alt,median,str(CI_left)+"-"+str(CI_right),
+          round(probChildAffected,4),sep="\t")
     for mode in modes:
-        print("\t",round(mode[0]*100),"% : ",MODES[mode[1]],sep="")
+        if(mode.posterior>=0.01):
+            print("\t",round(mode.posterior*100),"% : ",MODES[mode.index],
+                  sep="")
     geneIndex+=1
 os.remove(STDERR)
 os.remove(INPUT_FILE)

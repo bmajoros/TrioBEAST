@@ -60,7 +60,7 @@ MODES = [ "00 00 00 = all unaffected",
 "01 10 00 = both parents affected, 1 recombines child doesn't inherit",
 "01 10 10 = both parents affected, child inherits 1 copy"
 ]
-
+NUM_MODES=27
 
 #=========================================================================
 class Site:
@@ -200,7 +200,7 @@ def getInheritancePosterior(i,parser,denom):
 def getInheritanceMode(parser):
     pairs=[]
     denom=parser.getVariable("denominator");
-    for i in range(27):
+    for i in range(NUM_MODES):
         posterior=getInheritancePosterior(i,parser,denom)
         if(posterior<0.01): continue
         pairs.append([posterior,i])

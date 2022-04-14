@@ -29,9 +29,9 @@ def parseParmString(parmString):
 
 def evalModel(parmString,dataDir,outputsDir,threshold):
     truth=dataDir+"/truth-"+parmString+".essex"
-    cmd="git/eval-indiv.py "+truth+" "+outputsDir+" "+threshold
+    cmd="git/eval-indiv-childonly.py "+truth+" "+outputsDir+" "+threshold
     text=Pipe.run(cmd)
-    rex.findOrDie("(.*)% correct among trios with evidence",text)
+    rex.findOrDie("(.*)%",text)
     acc=float(rex[1])/100.0
     return acc
     

@@ -220,7 +220,7 @@ String Application::compactString(const Genotype &G)
   String s="";
   const int numAlleles=G.numAlleles();
   for(int i=0 ; i<numAlleles ; ++i) s+=String(G[i]);
-  if(s=="10") s="01"; // For unphased genotypes, these are equivalent
+  if(s=="10") s="01"; // Normalize unphased genotypes for easy lookup
   return s;
 }
 

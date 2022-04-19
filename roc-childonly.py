@@ -15,6 +15,8 @@ import ProgramName
 from EssexParser import EssexParser
 from Rex import Rex
 rex=Rex()
+import TempFilename
+from Pipe import Pipe
 
 class BufferedReader:
     def __init__(self,filename):
@@ -53,13 +55,13 @@ def hasHets(root,indiv):
 # main()
 #=========================================================================
 if(len(sys.argv)!=4):
-    exit(ProgramName.get()+" <truth.essex> <model-output> <threshold>\n")
-(truthFile,outputFile,threshold)=sys.argv[1:]
-threshold=float(threshold)
+    exit(ProgramName.get()+" <truth.essex> <model-output> <out.roc>\n")
+(truthFile,outputFile,rocFile)=sys.argv[1:]
 
+tempName=TempFilename.generate()
+TEMP=open(tempName,"wt")
 essexReader=EssexParser(truthFile)
 predReader=BufferedReader(outputFile)
-numTrios=0; right=0; wrong=0
 while(True):
     root=essexReader.nextElem()
     if(root is None): break
@@ -67,14 +69,15 @@ while(True):
     if(prediction is None): break
     (ID,Palt,theta,CI,Pchild)=prediction
     if(ID!=root[0]): raise Exception(ID+" != "+root[0]);
-    numTrios+=1
     sxAffected=root.findChild("affected")
     trueChild=int(getAffected(sxAffected,"child"))
-    childAffected=float(Pchild)>=threshold
-    if(trueChild==childAffected): right+=1
-    else: wrong+=1
-N=right+wrong
-acc=float(right)/float(N)
-print(round(acc*100,3),"% correct",sep="")
+    print(Pchild,trueChild,sep="\t",file=TEMP)
+    # print(Pchild,trueChild,sep="\t",flush=True)
+TEMP.close()
+Pipe.run("roc.pl "+tempName+" > "+rocFile)
+pipe=Pipe("area-under-ROC.pl "+rocFile)
+line=pipe.readline()
+print("AUC =",round(float(line),3))
+Pipe.run("rm "+tempName)
 
 

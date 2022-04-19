@@ -72,7 +72,6 @@ while(True):
     sxAffected=root.findChild("affected")
     trueChild=int(getAffected(sxAffected,"child"))
     print(Pchild,trueChild,sep="\t",file=TEMP)
-    # print(Pchild,trueChild,sep="\t",flush=True)
 TEMP.close()
 Pipe.run("roc.pl "+tempName+" > "+rocFile)
 pipe=Pipe("area-under-ROC.pl "+rocFile)

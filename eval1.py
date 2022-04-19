@@ -32,7 +32,7 @@ class BufferedReader:
                 line=self.fh.readline()
                 if(line is None): return None
             fields=line.rstrip().split()
-            (ID,Palt,theta,CI)=fields
+            (ID,Palt,theta,CI,Pchild)=fields
             line=self.fh.readline()
             if(not rex.find("(\d)% : (\d)(\d) (\d)(\d) (\d)(\d)",line)):
                 raise Exception("Can't parse: "+line)

@@ -14,6 +14,15 @@
 using namespace std;
 using namespace BOOM;
 
+/****************************************************************
+ This program performs trio phasing.  All combinations can be
+ perfectly phased except triple hets.  There are two possible
+ ways to phase a triple het: 10 01 10, or 01 10 01 (M/F/C).  This
+ program arbitrarily phases one of these two ways.  Downstream
+ models should sum over these two phases by swapping the alleles
+ in all three individuals to get the other phase.
+ ****************************************************************/
+
 enum Individual { MOTHER=0, FATHER=1, CHILD=2 };
 enum Allele { REF=0, ALT=1 };
 enum MaternalPaternal { MAT=0, PAT=1 };
@@ -95,7 +104,8 @@ int Application::main(int argc,char *argv[])
       installGT(genotypes,"mother",mother);
       installGT(genotypes,"father",father);
       installSuccess(success,site);
-      if(success) phaseCounts(mother,father,child,site);
+      //if(success) phaseCounts(mother,father,child,site);
+      phaseCounts(mother,father,child,site);
     }
     root->printOn(os); os<<endl;
   }
@@ -299,7 +309,7 @@ bool Application::phase(Genotype &mother,Genotype &father,Genotype &child)
   const String encoded=
     compactString(mother)+compactString(father)+compactString(child);
   bool canPhase=true;
-  if(encoded=="010101") canPhase=false; //return false; // triple het
+  if(encoded=="010101") canPhase=false; // triple het
   if(!phasingMap.isDefined(encoded))
     throw String("Genotype encoding is not defined: ")+encoded;
   String phased=phasingMap[encoded];

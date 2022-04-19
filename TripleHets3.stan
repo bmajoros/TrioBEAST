@@ -108,8 +108,8 @@ real likelihoods(int[,,] count,int[,] het,real logAffected,
 
       // 01 01 10 = both parents affected, one recombines, child inherits
       array[13]+=computeElem(count,het,isPhased,i, 2,2,1, p,p,p)
-      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
-      + logRecomb;
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logRecomb
+      + logNoRecomb;
 
       // 01 01 01 = both parents affected, one recombines, child inherits
       array[14]+=computeElem(count,het,isPhased,i, 2,2,2, p,p,p)
@@ -131,8 +131,8 @@ real likelihoods(int[,,] count,int[,] het,real logAffected,
 
       // 10 10 01 = both parents affected, one recombines, child inherits 1
       array[18]+=computeElem(count,het,isPhased,i, 1,1,2, p,p,p)
-      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
-      + logRecomb;
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logRecomb
+      + logNoRecomb;
 
       // 10 10 00 = both parents affected, both recombine, child inherits 0
       array[19]+=computeElem(count,het,isPhased,i, 1,1,1, p,p,0.5)
@@ -149,8 +149,8 @@ real likelihoods(int[,,] count,int[,] het,real logAffected,
 
       // 10 01 00 = both parents affected, 1 recombines, child inherits 0
       array[22]+=computeElem(count,het,isPhased,i, 1,2,1, p,p,0.5)
-      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
-      + logRecomb;
+      + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logRecomb
+      + logNoRecomb;
 
       // 10 01 01 = both parents affected, 2 recombine, child inherits 1
       array[23]+=computeElem(count,het,isPhased,i, 1,2,2, p,p,p)
@@ -184,8 +184,6 @@ data {
    int<lower=0> count[N_SITES,3,2]; // [site,individual,haplotype]
    int<lower=0,upper=1> isPhased[N_SITES]; // triple hets are unphased
    real<lower=0,upper=1> probAffected; // prior prob of 1 parent copy affected
-   //real<lower=0,upper=1> probDenovo; // de novo mutation rate, per copy
-   //real<lower=0,upper=1> probRecomb; // recombination rate
 }
 transformed data {
    real logAffected=log(probAffected);

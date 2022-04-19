@@ -29,7 +29,7 @@ for f in files:
     inFile=subdir+"/"+f
     outFile=subdir+"/phased-"+rest
     cmd="git/phase-trio "+inFile+" "+outFile
-    print(cmd+"\n")
+    #print(cmd+"\n")
     Pipe.run(cmd)
     
 

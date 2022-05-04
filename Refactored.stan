@@ -9,6 +9,9 @@
 // Indexing of arrays:
 //   Individuals: 1=mother, 2=father, 3=child
 //   Haplotypes:  1=maternal, 2=paternal
+//
+// For child, genotype XY means X is maternal and Y is paternal
+// For a parent, gentype XY means X is transmitted to child, Y is not
 //====================================================================
 
 functions {
@@ -51,13 +54,25 @@ int countDenovos(int parent,int[,] V) {
    return 0;
 }
 
-int countRecomb(int parent,int[,] V) {
-   // If the child's inherited allele differs from the parent's transmitted
-   // allele, there has been a recombination in the parent (as long as
-   // the parent has an affected allele -- otherwise it may be a de novo)
-   if(V[parent,1]==0 && V[parent,2]==1 && V[3,parent]==1 ||
-      V[parent,1]==1 && V[parent,2]==0 && V[3,parent]==0) return 1;
-   return 0;
+//int countRecomb(int parent,int[,] V) {
+//   // If the child's inherited allele differs from the parent's transmitted
+//   // allele, there has been a recombination in the parent (as long as
+//   // the parent has an affected allele -- otherwise it may be a de novo)
+//   if(V[parent,1]==0 && V[parent,2]==1 && V[3,parent]==1 ||
+//      V[parent,1]==1 && V[parent,2]==0 && V[3,parent]==0) return 1;
+//   return 0;
+//}
+
+int isHet(int parent,int[,] V) { return V[parent,1]!=V[parent,2]; }
+
+real recombTerm(int parent,int[,] V,real logRecomb,real logNoRecomb) {
+   // There is no recombination term if the parent is homozygous, because
+   // the terms for recombination and no recombination cancel
+   real s=0;
+   if(isHet(parent,V))
+      if(V[3,parent]==V[parent,1]) s+=logNoRecomb;
+      else s+=logRecomb;
+   return s;
 }
 
 int affectedCopy(int indiv,int[,] V) {
@@ -78,7 +93,8 @@ real modeLik(int site,int[,] mode,int[,,] count,int[,] het,real logAffected,
    // Count some things and initialize variables
    real s=0; 
    int numDenovos=countDenovos(1,mode)+countDenovos(2,mode);
-   int numRecomb=countRecomb(1,mode)+countRecomb(2,mode);
+   real recomb=recombTerm(1,mode,logRecomb,logNoRecomb)+
+       recombTerm(2,mode,logRecomb,logNoRecomb);
    int mCopy=affectedCopy(1,mode); int fCopy=affectedCopy(2,mode);
    int cCopy=affectedCopy(3,mode); real mP=getP(1,mode,p);
    real fP=getP(2,mode,p); real cP=getP(3,mode,p);
@@ -92,7 +108,8 @@ real modeLik(int site,int[,] mode,int[,,] count,int[,] het,real logAffected,
    s+=computeElem(count,het,isPhased,site,mCopy,fCopy,cCopy,mP,fP,cP);
 
    // Handle recombinations (parents) and de novos (child)
-   s+=numRecomb*logRecomb + (2-numRecomb)*logNoRecomb;
+   //s+=numRecomb*logRecomb + (2-numRecomb)*logNoRecomb;
+   s+=recomb;
    s+=numDenovos*logDenovo + (2-numDenovos)*logNoDenovo;
 
    return s;

@@ -160,12 +160,12 @@ real likelihoods(int[,,] count,int[,] het,real logAffected,
       array[24]+=computeElem(count,het,isPhased,i, 2,1,2, p,p,p)
       + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
 
-      // 01 10 11 = both parents affected, 1 recombines child inherits 2
+      // 01 10 11 = both parents affected, 1 recombines, child inherits 2
       array[25]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,0.5)
       + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
       + logRecomb;
 
-      // 01 10 00 = both parents affected, 1 recombines child inherits 0
+      // 01 10 00 = both parents affected, 1 recombines, child inherits 0
       array[26]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,0.5)
       + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
       + logRecomb;
@@ -223,8 +223,6 @@ generated quantities
    for(i in 1:27) numerator[i]=0.0;
 
    for(i in 1:N_SITES) {
-      //if(!isPhased[i]) continue; // ### Need to relax this (later)
-
       // MM FF CC (Mother Father Child)
       // 00 00 00 = all unaffected
       numerator[1]+=computeElem(count,het,isPhased,i, 1,1,1, 0.5,0.5,0.5)
@@ -330,12 +328,12 @@ generated quantities
       numerator[24]+=computeElem(count,het,isPhased,i, 2,1,2, p,p,p)
       + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + 2*logNoRecomb;
 
-      // 01 10 11 = both parents affected, 1 recombines child inherits 2
+      // 01 10 11 = both parents affected, 1 recombines, child inherits 2
       numerator[25]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,0.5)
       + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
       + logRecomb;
 
-      // 01 10 00 = both parents affected, 1 recombines child inherits 0
+      // 01 10 00 = both parents affected, 1 recombines, child inherits 0
       numerator[26]+=computeElem(count,het,isPhased,i, 2,1,1, p,p,0.5)
       + 2*logUnaffected + 2*logAffected + 2*logNoDenovo + logNoRecomb
       + logRecomb;

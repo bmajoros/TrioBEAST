@@ -55,8 +55,6 @@ real likelihoods(int[,,] count,int[,] het,real logAffected,
    for(i in 1:11) array[i]=0.0;
 
    for(i in 1:N_SITES) {
-      //if(!isPhased[i]) continue; // ### Need to relax this (later)
-
       // MM FF CC (Mother Father Child)
       // 00 00 00 = all unaffected
       array[1]+=computeElem(count,het,isPhased,i, 1,1,1, 0.5,0.5,0.5)
@@ -112,8 +110,6 @@ data {
    int<lower=0> count[N_SITES,3,2]; // [site,individual,haplotype]
    int<lower=0,upper=1> isPhased[N_SITES]; // triple hets are unphased
    real<lower=0,upper=1> probAffected; // prior prob of 1 parent copy affected
-   //real<lower=0,upper=1> probDenovo; // de novo mutation rate, per copy
-   //real<lower=0,upper=1> probRecomb; // recombination rate
 }
 transformed data {
    real logAffected=log(probAffected);
@@ -153,8 +149,6 @@ generated quantities
    for(i in 1:11) numerator[i]=0.0;
 
    for(i in 1:N_SITES) {
-      //if(!isPhased[i]) continue; // ### Need to relax this (later)
-
       // MM FF CC (Mother Father Child)
       // 00 00 00 = all unaffected
       numerator[1]+=computeElem(count,het,isPhased,i, 1,1,1, 0.5,0.5,0.5)

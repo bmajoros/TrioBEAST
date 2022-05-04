@@ -104,8 +104,8 @@ int Application::main(int argc,char *argv[])
       installGT(genotypes,"mother",mother);
       installGT(genotypes,"father",father);
       installSuccess(success,site);
-      //if(success) phaseCounts(mother,father,child,site);
-      phaseCounts(mother,father,child,site);
+      //if(success) phaseCounts(mother,father,child,site); // wrong
+      phaseCounts(mother,father,child,site); // right, but lower accuracy?!
     }
     root->printOn(os); os<<endl;
   }

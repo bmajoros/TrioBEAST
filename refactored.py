@@ -25,7 +25,7 @@ from Stan import Stan
 from StanParser import StanParser
 import numpy as np
 
-DEBUG=True
+DEBUG=False
 WARMUP=300
 STDERR=TempFilename.generate(".stderr")
 INPUT_FILE=TempFilename.generate(".staninputs")
@@ -124,13 +124,20 @@ def writeInitializationFile(filename):
     #print("theta <- 1",file=OUT)
     OUT.close()
 
-def writeInputsFile(stan,gene,probAffected,filename):
+def writeInputsFile(stan,gene,probAffected,filename,modeArray):
     OUT=open(filename,"wt")
 
     # N_SITES
     N_SITES=len(gene.sites)
     print("N_SITES <- ",N_SITES,file=OUT)
 
+    # N_MODES
+    N_MODES=len(modeArray)
+    print("N_MODES <- ",N_MODES,file=OUT)
+
+    # int modes[N_MODES,3,2]; // [mode,individual,haplotype]
+    stan.writeThreeDimArray("modes",modeArray,N_MODES,3,2,OUT)
+    
     # int<lower=0,upper=1> het[N_SITES,3]
     het=np.zeros((N_SITES,3),int)
     for i in range(N_SITES): het[i]=gene.sites[i].het
@@ -150,9 +157,9 @@ def writeInputsFile(stan,gene,probAffected,filename):
     print("probAffected <- ",probAffected,file=OUT)
     OUT.close()
 
-def runGene(stan,gene,numSamples,probAffected,Lambda):
+def runGene(stan,gene,numSamples,probAffected,Lambda,modeArray):
     # Write inputs file for STAN
-    writeInputsFile(stan,gene,probAffected,INPUT_FILE)
+    writeInputsFile(stan,gene,probAffected,INPUT_FILE,modeArray)
     writeInitializationFile(INIT_FILE)
     
     # Run STAN model
@@ -203,6 +210,21 @@ def getInheritanceMode(parser):
     pairs.sort(key=lambda x: 1-x[0])
     return pairs
 
+def digit(c):
+    return ord(c)-ord('0')
+
+def initModes():
+    array3D=[] # indexed as: [mode,indiv,haplotype]
+    for i in range(NUM_MODES):
+        modeString=MODES[i]
+        # "00 00 10 = child has a de novo in the causal variant"
+        rec=[] # indexed as: [indiv,haplotype]
+        rec.append([digit(modeString[0]),digit(modeString[1])])
+        rec.append([digit(modeString[3]),digit(modeString[4])])
+        rec.append([digit(modeString[6]),digit(modeString[7])])
+        array3D.append(rec)
+    return array3D
+
 #=========================================================================
 # main()
 #=========================================================================
@@ -219,6 +241,8 @@ if(not rex.find("(\d+)-(\d+)",geneRange)):
 firstIndex=int(rex[1])
 lastIndex=int(rex[2])
 Lambda=float(Lambda)
+
+modeArray=initModes()
 
 # Process each gene
 geneIndex=0
@@ -237,7 +261,7 @@ while(True):
     #outfile="" if samplesDir=="." else samplesDir+"/"+gene.ID+".samples"
     stan=Stan(model)
     (median,P_alt,CI_left,CI_right,modes)=\
-      runGene(stan,gene,numSamples,probAffected,Lambda)
+      runGene(stan,gene,numSamples,probAffected,Lambda,modeArray)
     P_alt=round(P_alt,3)
     median=round(median,3)
     CI_left=round(CI_left,3); CI_right=round(CI_right,3)

@@ -54,15 +54,6 @@ int countDenovos(int parent,int[,] V) {
    return 0;
 }
 
-//int countRecomb(int parent,int[,] V) {
-//   // If the child's inherited allele differs from the parent's transmitted
-//   // allele, there has been a recombination in the parent (as long as
-//   // the parent has an affected allele -- otherwise it may be a de novo)
-//   if(V[parent,1]==0 && V[parent,2]==1 && V[3,parent]==1 ||
-//      V[parent,1]==1 && V[parent,2]==0 && V[3,parent]==0) return 1;
-//   return 0;
-//}
-
 int isHet(int parent,int[,] V) { return V[parent,1]!=V[parent,2]; }
 
 real recombTerm(int parent,int[,] V,real logRecomb,real logNoRecomb) {
@@ -82,8 +73,8 @@ int affectedCopy(int indiv,int[,] V) {
 }
 
 real getP(int indiv,int[,] V,real p) {
-   if(V[indiv,1]==V[indiv,2]) return 0.5;
-   return p;
+   if(V[indiv,1]==V[indiv,2]) return 0.5; // Homozygous site
+   return p; // Heterozygous site
 }
 
 real modeLik(int site,int[,] mode,int[,,] count,int[,] het,real logAffected,

@@ -80,7 +80,7 @@ real likelihoods(int[,,] count,int[,] het,real logAffected,
       array[6]+=computeElem(count,het,isPhased,i, 1,2,1, 0.5,p,0.5)
       + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
 
-      // 00 01 00 = father affected and recombines, child inherits
+      // 00 01 01 = father affected and recombines, child inherits
       array[7]+=computeElem(count,het,isPhased,i, 1,2,2, 0.5,p,p)
       + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
 
@@ -248,7 +248,7 @@ generated quantities
       numerator[6]+=computeElem(count,het,isPhased,i, 1,2,1, 0.5,p,0.5)
       + 3*logUnaffected + logAffected + 2*logNoDenovo + logNoRecomb;
 
-      // 00 01 00 = father affected and recombines, child inherits
+      // 00 01 01 = father affected and recombines, child inherits
       numerator[7]+=computeElem(count,het,isPhased,i, 1,2,2, 0.5,p,p)
       + 3*logUnaffected + logAffected + 2*logNoDenovo + logRecomb;
 

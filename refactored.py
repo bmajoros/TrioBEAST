@@ -38,7 +38,7 @@ MODES = [ "00 00 00 = all unaffected",
 "01 00 00 = mother affected, child doesn't inherit",
 "01 00 10 = mother affected and recombines, child inherits",
 "00 01 00 = father affected, child doesn't inherit",
-"00 01 00 = father affected and recombines, child inherits",
+"00 01 01 = father affected and recombines, child inherits",
 "10 00 10 = mother affected, child inherits",
 "10 00 00 = mother affected and recombines, child doesn't inherit",
 "00 10 01 = father affected, child inherits",
@@ -189,14 +189,11 @@ def runGene(stan,gene,numSamples,probAffected,Lambda,modeArray):
 
 def getInheritancePosterior(i,parser,denom):
     array=[]
-    #debug=[] ###
     numer=parser.getVariable("numerator."+str(i+1))
     numSamples=len(numer)
     for j in range(numSamples):
         posterior=math.exp(numer[j]-denom[j]);
-        #debug.append(numer[j]) ###
         array.append(posterior)
-    #print("XXX",i,sum(debug)/len(debug),sum(array)/len(array))
     return sum(array)/len(array)
 
 def getInheritanceMode(parser):
@@ -225,6 +222,14 @@ def initModes():
         array3D.append(rec)
     return array3D
 
+def debugModes():
+    uniq=set()
+    for i in range(NUM_MODES):
+        mode=MODES[i][:8]
+        uniq.add(mode)
+    n=len(uniq)
+    if(n!=NUM_MODES): raise Exception("Modes not all unique")
+        
 #=========================================================================
 # main()
 #=========================================================================
@@ -258,7 +263,6 @@ while(True):
     elif(geneIndex>lastIndex): break
     gene=parseGene(elem)
     if(gene is None): continue
-    #outfile="" if samplesDir=="." else samplesDir+"/"+gene.ID+".samples"
     stan=Stan(model)
     (median,P_alt,CI_left,CI_right,modes)=\
       runGene(stan,gene,numSamples,probAffected,Lambda,modeArray)

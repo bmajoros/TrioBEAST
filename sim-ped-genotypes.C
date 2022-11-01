@@ -1,5 +1,5 @@
 /****************************************************************
- sim1.C
+ sim-ped-genotypes.C
  Copyright (C)2022 William H. Majoros (bmajoros@alumni.duke.edu).
  This is OPEN SOURCE SOFTWARE governed by the Gnu General Public
  License (GPL) version 3, as described at www.opensource.org.
@@ -45,12 +45,14 @@ public:
   Vector<Individual*> &getChildren();
   virtual bool isRoot() const;
   bool isLeaf() const;
+  MaternalPaternal &getInherit(MotherFather); // which copy I inherit
 private:
   String ID;
   Sex sex;
   Array1D<String> parentID;
   Array1D<Individual*> parents;
   Vector<Individual*> children;
+  Array1D<MaternalPaternal> inherit; // which copy I inherit from Mom and Dad
 };
 
 /****************************************************************
@@ -81,6 +83,7 @@ public:
   Individual *findIndiv(const String ID) const;
   void printOn(ostream &) const;
   void topologicalSort(Vector<Individual*> &into);
+  void simInherit();
 private:
   Vector<Individual*> individuals;
   void dfs(Individual *,Set<Individual*> &seen,Vector<Individual*> &stack);
@@ -142,14 +145,15 @@ int Application::main(int argc,char *argv[])
   const String phasedFilename=cmd.arg(5);
   const String unphasedFilename=cmd.arg(6);
 
-  // Load pedigree
+  // Load pedigree and simulate meioses
   Pedigree *pedigree=Pedigree::loadFromTextFile(PED_FILE);
   Vector<Individual*> topsort;
   pedigree->topologicalSort(topsort);
-  cout<<"TOPOLOGICAL SORT:"<<endl;
+  pedigree->simInherit();
+  /*cout<<"TOPOLOGICAL SORT:"<<endl;
   for(Vector<Individual*>::iterator cur=topsort.begin(), end=topsort.end() ;
       cur!=end ; ++cur)
-    cout<<(*cur)->getID()<<endl;
+      cout<<(*cur)->getID()<<endl;*/
   
   // Parse VCF identifier list
   ID_LIST.getFields(vcfIDs,",");
@@ -180,11 +184,19 @@ int Application::main(int argc,char *argv[])
  ****************************************************************/
 Individual::Individual(const String &id,Sex sex,const String &motherID,
 		       const String &fatherID)
-  : ID(id), sex(sex), parentID(2), parents(2)
+  : ID(id), sex(sex), parentID(2), parents(2), inherit(2)
 {
   parentID[MOTHER]=motherID;
   parentID[FATHER]=fatherID;
   parents.setAllTo(NULL);
+  inherit.setAllTo(MATPAT_UNKNOWN);
+}
+
+
+
+MaternalPaternal &Individual::getInherit(MotherFather parent)
+{
+  return inherit[parent];
 }
 
 
@@ -392,6 +404,22 @@ void Pedigree::dfs(Individual *ind,Set<Individual*> &seen,
     dfs(*cur,seen,stack);
   stack.push_back(ind);
 }
+
+
+
+void Pedigree::simInherit()
+{
+  // This method stochastically chooses which haplotype each individual
+  // inherits from each parent: the parent's maternal haplotype, or the
+  // parent's paternal haplotype
+  for(Vector<Individual*>::iterator cur=individuals.begin(),
+	end=individuals.end() ; cur!=end ; ++cur) {
+    Individual *ind=*cur;
+    ind->getInherit(MOTHER)=Random0to1()<0.5 ? MAT : PAT;
+    ind->getInherit(FATHER)=Random0to1()<0.5 ? MAT : PAT;
+  }
+}
+
 
 
 /****************************************************************

@@ -23,10 +23,21 @@ $(OBJ)/sim1.o:\
 	$(CC) $(CFLAGS) -o $(OBJ)/sim1.o -c \
 		sim1.C
 #---------------------------------------------------------
+$(OBJ)/sim-ped-genotypes.o:\
+		sim-ped-genotypes.C
+	$(CC) $(CFLAGS) -o $(OBJ)/sim-ped-genotypes.o -c \
+		sim-ped-genotypes.C
+#---------------------------------------------------------
 sim1: \
 		$(OBJ)/sim1.o
 	$(CC) $(LDFLAGS) -o sim1 \
 		$(OBJ)/sim1.o \
+		$(LIBS)
+#---------------------------------------------------------
+sim-ped-genotypes: \
+		$(OBJ)/sim-ped-genotypes.o
+	$(CC) $(LDFLAGS) -o sim-ped-genotypes \
+		$(OBJ)/sim-ped-genotypes.o \
 		$(LIBS)
 #--------------------------------------------------------
 $(OBJ)/phase-trio.o:\

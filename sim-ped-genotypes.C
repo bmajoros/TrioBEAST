@@ -18,12 +18,14 @@ using namespace std;
 using namespace BOOM;
 
 /****************************************************************
-                            enums
+                       enums and utilities
  ****************************************************************/
 enum Allele { REF=0, ALT=1 };
-enum MaternalPaternal { MAT=0, PAT=1 };
-enum MotherFather { MOTHER=0, FATHER=1 };
-enum Sex { FEMALE=0, MALE=1 };
+enum MaternalPaternal { MAT=0, PAT=1, MATPAT_UNKNOWN=2 };
+enum MotherFather { MOTHER=0, FATHER=1, MF_UNKNOWN=2 };
+enum Sex { FEMALE=0, MALE=1, SEX_UNKNOWN };
+Sex stringToSex(const String &);
+ostream &operator<<(ostream &,Sex);
 
 /****************************************************************
                          class Individual
@@ -45,38 +47,6 @@ private:
 };
 
 /****************************************************************
-                         Individual methods
- ****************************************************************/
-Individual::Individual(const String &id,Sex,const String &motherID,
-		       const String &fatherID)
-  : ID(id), sex(sex), parentID(2), parents(2)
-{
-  parentID[MOTHER]=motherID;
-  parentID[FATHER]=fatherID;
-  parents.setAllTo(NULL);
-}
-const String &Individual::getID() const
-{
-  return ID;
-}
-Individual *Individual::getParent(MotherFather i) const
-{
-  return parents[i];
-}
-void Individual::setParent(MotherFather which,Individual *parent)
-{
-  parents[which]=parent;
-}
-const String &Individual::getParentID(MotherFather i) const
-{
-  return parentID[i];
-}
-Sex Individual::getSex() const
-{
-  return sex;
-}
-
-/****************************************************************
                          class Pedigree
  ****************************************************************/
 class Pedigree {
@@ -89,62 +59,16 @@ public:
   Individual *operator[](int);
   void setParentPointers();
   Individual *findIndiv(const String ID) const;
+  void printOn(ostream &) const;
 private:
   Vector<Individual*> individuals;
 };
-/****************************************************************
-                         Pedigree methods
- ****************************************************************/
-Pedigree::Pedigree()
-{
-  // ctor
-}
-Pedigree::~Pedigree()
-{
-  for(Vector<Individual*>::iterator cur=individuals.begin(),
-	end=individuals.end() ; cur!=end ; ++cur)
-    delete *cur;
-}
-Pedigree *Pedigree::loadFromTextFile(const String &filename)
-{
-}
-void Pedigree::addIndividual(Individual *ind)
-{
-  individuals.push_back(ind);
-}
-int Pedigree::size() const
-{
-  return individuals.size();
-}
-Individual *Pedigree::operator[](int i)
-{
-  return individuals[i];
-}
-Individual *Pedigree::findIndiv(const String ID) const
-{
-  // Linear search: inefficient, but only used a few times
-  for(Vector<Individual*>::const_iterator cur=individuals.begin(),
-	end=individuals.end() ; cur!=end ; ++cur) {
-    Individual *ind=*cur;
-    if(ind->getID()==ID) return ind;
-  }
-  return NULL;
-}
-void Pedigree::setParentPointers()
-{
-  for(Vector<Individual*>::iterator cur=individuals.begin(),
-	end=individuals.end() ; cur!=end ; ++cur) {
-    Individual *ind=*cur;
-    ind->setParent(MOTHER,findIndiv(ind->getParentID(MOTHER)));
-    ind->setParent(FATHER,findIndiv(ind->getParentID(FATHER)));
-  }
-}
+ostream &operator<<(ostream &,const Pedigree &);
 
 /****************************************************************
                          class Application
  ****************************************************************/
 class Application {
-
 public:
   Application();
   int main(int argc,char *argv[]);
@@ -195,6 +119,11 @@ int Application::main(int argc,char *argv[])
   const String phasedFilename=cmd.arg(5);
   const String unphasedFilename=cmd.arg(6);
 
+  cout<<"Loading pedigree..."<<endl;
+  Pedigree *pedigree=Pedigree::loadFromTextFile(PED_FILE);
+  cout<<*pedigree<<endl;
+  cout<<"done."<<endl;
+  
   ofstream phasedFile(phasedFilename), unphasedFile(unphasedFilename);
   VcfReader reader(VCF_FILE);
   reader.hashSampleIDs();
@@ -215,3 +144,190 @@ int Application::main(int argc,char *argv[])
 
 
 
+/****************************************************************
+                         Individual methods
+ ****************************************************************/
+Individual::Individual(const String &id,Sex sex,const String &motherID,
+		       const String &fatherID)
+  : ID(id), sex(sex), parentID(2), parents(2)
+{
+  parentID[MOTHER]=motherID;
+  parentID[FATHER]=fatherID;
+  parents.setAllTo(NULL);
+}
+
+
+
+const String &Individual::getID() const
+{
+  return ID;
+}
+
+
+
+Individual *Individual::getParent(MotherFather i) const
+{
+  return parents[i];
+}
+
+
+
+void Individual::setParent(MotherFather which,Individual *parent)
+{
+  parents[which]=parent;
+}
+
+
+
+const String &Individual::getParentID(MotherFather i) const
+{
+  return parentID[i];
+}
+
+
+
+Sex Individual::getSex() const
+{
+  return sex;
+}
+
+
+
+/****************************************************************
+                         Pedigree methods
+ ****************************************************************/
+Pedigree::Pedigree()
+{
+  // ctor
+}
+
+
+
+Pedigree::~Pedigree()
+{
+  for(Vector<Individual*>::iterator cur=individuals.begin(),
+	end=individuals.end() ; cur!=end ; ++cur)
+    delete *cur;
+}
+
+
+
+void Pedigree::printOn(ostream &os) const
+{
+  os<<"ID\tSex\tMother\tFather"<<endl;
+  for(Vector<Individual*>::const_iterator cur=individuals.begin(),
+	end=individuals.end() ; cur!=end ; ++cur) {
+    Individual *ind=*cur;
+    Individual *mother=ind->getParent(MOTHER);
+    Individual *father=ind->getParent(FATHER);
+    os<<ind->getID()<<"\t"<<ind->getSex()
+      <<"\t"<<(mother ? mother->getID() : ".")
+      <<"\t"<<(father ? father->getID() : ".")
+      <<endl;
+  }
+}
+
+
+
+ostream &operator<<(ostream &os,const Pedigree &ped)
+{
+  ped.printOn(os);
+  return os;
+}
+
+
+
+Pedigree *Pedigree::loadFromTextFile(const String &filename)
+{
+  File file(filename);
+  String header=file.getline();
+  Vector<String> fields;
+  Pedigree *pedigree=new Pedigree();
+  while(!file.eof()) {
+    String line=file.getline();
+    line.getFields(fields);
+    if(fields.size()<4) continue;
+    const String ID=fields[0];
+    const Sex sex=stringToSex(fields[1]);
+    const String motherID=fields[2];
+    const String fatherID=fields[3];
+    Individual *ind=new Individual(ID,sex,motherID,fatherID);
+    pedigree->addIndividual(ind);
+  }
+  pedigree->setParentPointers();
+  return pedigree;
+}
+
+
+
+void Pedigree::addIndividual(Individual *ind)
+{
+  individuals.push_back(ind);
+}
+
+
+
+int Pedigree::size() const
+{
+  return individuals.size();
+}
+
+
+
+Individual *Pedigree::operator[](int i)
+{
+  return individuals[i];
+}
+
+
+
+Individual *Pedigree::findIndiv(const String ID) const
+{
+  // Linear search: inefficient, but only used a few times
+  for(Vector<Individual*>::const_iterator cur=individuals.begin(),
+	end=individuals.end() ; cur!=end ; ++cur) {
+    Individual *ind=*cur;
+    if(ind->getID()==ID) return ind;
+  }
+  return NULL;
+}
+
+
+
+void Pedigree::setParentPointers()
+{
+  for(Vector<Individual*>::iterator cur=individuals.begin(),
+	end=individuals.end() ; cur!=end ; ++cur) {
+    Individual *ind=*cur;
+    ind->setParent(MOTHER,findIndiv(ind->getParentID(MOTHER)));
+    ind->setParent(FATHER,findIndiv(ind->getParentID(FATHER)));
+  }
+}
+
+
+
+/****************************************************************
+                         utility functions
+ ****************************************************************/
+Sex stringToSex(const String &s)
+{
+  String sex=s; sex.toupper();
+  if(sex=="FEMALE" || sex=="F") return FEMALE;
+  else if(sex=="MALE" || sex=="M") return MALE;
+  return SEX_UNKNOWN;
+}
+
+
+
+ostream &operator<<(ostream &os,Sex s)
+{
+  switch(s) {
+  case FEMALE:
+    os<<"female"; break;
+  case MALE:
+    os<<"male"; break;
+  case SEX_UNKNOWN:
+    os<<"."; break;
+  }
+  return os;
+}

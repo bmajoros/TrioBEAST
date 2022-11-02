@@ -166,12 +166,12 @@ int Application::main(int argc,char *argv[])
   //fatherIndex=reader.getSampleIndex(FATHER_ID);
   for(int geneNum=0 ; geneNum<NUM_GENES ; ++geneNum) {
     cout<<"Simulating gene "<<(geneNum+1)<<endl;
+    Vector<VariantAndGenotypes> variants;
+    VariantAndGenotypes vg;
+    for(int varNum=0 ; varNum<VARIANTS_PER_GENE ; ++varNum)
+      { reader.nextVariant(vg); variants.push_back(vg); }
+
     
-    //Vector<VariantAndGenotypes> variants;
-    for(int varNum=0 ; varNum<VARIANTS_PER_GENE ; ++varNum) {
-      //variants.push_back(simNext(reader));
-      
-      }
   }
 
   return 0;

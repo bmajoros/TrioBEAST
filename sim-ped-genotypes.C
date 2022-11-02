@@ -100,6 +100,10 @@ ostream &operator<<(ostream &,const Pedigree &);
  ****************************************************************/
 class Application {
   Vector<String> vcfIDs;
+  bool readVariants(const int n,VcfReader &,Vector<VariantAndGenotypes> &into,
+		    const Vector<Root*> &roots);
+  bool isVariableSite(const VariantAndGenotypes,const Vector<Root*> &,
+		      VcfReader &);
   void setRootGenotypes(Vector<Root*> &,VcfReader &,
 			const Vector<VariantAndGenotypes> &variants);
   void inherit(Vector<Individual*> &topsort);
@@ -170,10 +174,6 @@ int Application::main(int argc,char *argv[])
     throw RootException("Number of VCF IDs does not match number of roots");
   for(int i=0 ; i<roots.size() ; ++i)
     roots[i]->setVcfID(vcfIDs[i]);
-  /*cout<<"TOPOLOGICAL SORT:"<<endl;
-  for(Vector<Individual*>::iterator cur=topsort.begin(), end=topsort.end() ;
-      cur!=end ; ++cur)
-      cout<<(*cur)->getID()<<endl;*/
   
   // Process VCF file
   ofstream phasedFile(phasedFilename), unphasedFile(unphasedFilename);
@@ -182,15 +182,42 @@ int Application::main(int argc,char *argv[])
   for(int geneNum=0 ; geneNum<NUM_GENES ; ++geneNum) {
     cout<<"Simulating gene "<<(geneNum+1)<<endl;
     Vector<VariantAndGenotypes> variants;
-    VariantAndGenotypes vg;
-    for(int varNum=0 ; varNum<VARIANTS_PER_GENE ; ++varNum)
-      { reader.nextVariant(vg); variants.push_back(vg); }
+    readVariants(VARIANTS_PER_GENE,reader,variants,roots);
     setRootGenotypes(roots,reader,variants);
     inherit(topsort);
     printPhased(*pedigree,variants,cout);
   }
-
   return 0;
+}
+
+
+
+bool Application::isVariableSite(const VariantAndGenotypes vg,
+				 const Vector<Root*> &roots,
+				 VcfReader &reader)
+{
+  for(Vector<Root*>::const_iterator cur=roots.begin(), end=roots.end() ;
+      cur!=end ; ++cur) {
+    const Root &root=**cur;
+    const int sampleIndex=reader.getSampleIndex(root.getVcfID());
+    if(vg.genotypes[sampleIndex].isHet()) return true;
+  }
+  return false;
+}
+
+
+
+bool Application::readVariants(const int n,VcfReader &reader,
+			       Vector<VariantAndGenotypes> &into,
+			       const Vector<Root*> &roots)
+{
+  VariantAndGenotypes vg;
+  for(int varNum=0 ; varNum<n ; ++varNum) {
+    reader.nextVariant(vg);
+    if(!isVariableSite(vg,roots,reader)) { --varNum; continue; }
+    into.push_back(vg);
+  }
+  return true;
 }
 
 

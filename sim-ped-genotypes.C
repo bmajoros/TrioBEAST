@@ -103,6 +103,8 @@ class Application {
   void setRootGenotypes(Vector<Root*> &,VcfReader &,
 			const Vector<VariantAndGenotypes> &variants);
   void inherit(Vector<Individual*> &topsort);
+  void printPhased(const Pedigree &,const Vector<VariantAndGenotypes> &,
+		   ostream &);
 public:
   Application();
   int main(int argc,char *argv[]);
@@ -183,10 +185,9 @@ int Application::main(int argc,char *argv[])
     VariantAndGenotypes vg;
     for(int varNum=0 ; varNum<VARIANTS_PER_GENE ; ++varNum)
       { reader.nextVariant(vg); variants.push_back(vg); }
-    //cout<<variants.size()<<" variants loaded"<<endl;
-    
     setRootGenotypes(roots,reader,variants);
     inherit(topsort);
+    printPhased(*pedigree,variants,cout);
   }
 
   return 0;
@@ -233,6 +234,33 @@ void Application::inherit(Vector<Individual*> &topsort)
       genotype[MAT]=motherGT[fromMother];
       genotype[PAT]=fatherGT[fromFather];
     }
+  }
+}
+
+
+
+void Application::printPhased(const Pedigree &pedigree,
+			      const Vector<VariantAndGenotypes> &variants,
+			      ostream &os)
+{
+  // Print header line
+  const int numIndiv=pedigree.size();
+  os<<"site";
+  for(int i=0 ; i<numIndiv ; ++i)
+    os<<"\t"<<pedigree[i]->getID();
+  os<<endl;
+
+  // Print each variant
+  const int numVar=variants.size();
+  for(int i=0 ; i<numVar ; ++i) {
+    const Variant &v=variants[i].variant;
+    os<<v.getID();
+    for(int j=0 ; j<numIndiv ; ++j) {
+      Individual *ind=pedigree[j];
+      Genotype &g=ind->getGenotypes()[i];
+      os<<"\t"<<g[0]<<"|"<<g[1];
+    }
+    os<<endl;
   }
 }
 

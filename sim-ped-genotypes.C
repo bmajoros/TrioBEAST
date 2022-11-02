@@ -46,6 +46,8 @@ public:
   virtual bool isRoot() const;
   bool isLeaf() const;
   MaternalPaternal &getInherit(MotherFather); // which copy I inherit
+  void resizeGenotypes(int);
+  Array1D<Genotype> &getGenotypes();
 private:
   String ID;
   Sex sex;
@@ -53,6 +55,7 @@ private:
   Array1D<Individual*> parents;
   Vector<Individual*> children;
   Array1D<MaternalPaternal> inherit; // which copy I inherit from Mom and Dad
+  Array1D<Genotype> genotypes;
 };
 
 /****************************************************************
@@ -84,6 +87,8 @@ public:
   void printOn(ostream &) const;
   void topologicalSort(Vector<Individual*> &into);
   void simInherit();
+  void getRoots(Vector<Root*> &into);
+  void resizeGenotypes(int);
 private:
   Vector<Individual*> individuals;
   void dfs(Individual *,Set<Individual*> &seen,Vector<Individual*> &stack);
@@ -95,6 +100,9 @@ ostream &operator<<(ostream &,const Pedigree &);
  ****************************************************************/
 class Application {
   Vector<String> vcfIDs;
+  void setRootGenotypes(Vector<Root*> &,VcfReader &,
+			const Vector<VariantAndGenotypes> &variants);
+  void inherit(Vector<Individual*> &topsort);
 public:
   Application();
   int main(int argc,char *argv[]);
@@ -145,36 +153,87 @@ int Application::main(int argc,char *argv[])
   const String phasedFilename=cmd.arg(5);
   const String unphasedFilename=cmd.arg(6);
 
+  // Parse VCF identifier list
+  ID_LIST.getFields(vcfIDs,",");
+
   // Load pedigree and simulate meioses
   Pedigree *pedigree=Pedigree::loadFromTextFile(PED_FILE);
   Vector<Individual*> topsort;
   pedigree->topologicalSort(topsort);
   pedigree->simInherit();
+  pedigree->resizeGenotypes(VARIANTS_PER_GENE);
+  Vector<Root*> roots; pedigree->getRoots(roots);
+  cout<<roots.size()<<" roots found"<<endl;
+  if(roots.size()!=vcfIDs.size())
+    throw RootException("Number of VCF IDs does not match number of roots");
+  for(int i=0 ; i<roots.size() ; ++i)
+    roots[i]->setVcfID(vcfIDs[i]);
   /*cout<<"TOPOLOGICAL SORT:"<<endl;
   for(Vector<Individual*>::iterator cur=topsort.begin(), end=topsort.end() ;
       cur!=end ; ++cur)
       cout<<(*cur)->getID()<<endl;*/
   
-  // Parse VCF identifier list
-  ID_LIST.getFields(vcfIDs,",");
-  
   // Process VCF file
   ofstream phasedFile(phasedFilename), unphasedFile(unphasedFilename);
   VcfReader reader(VCF_FILE);
   reader.hashSampleIDs();
-  //motherIndex=reader.getSampleIndex(MOTHER_ID);
-  //fatherIndex=reader.getSampleIndex(FATHER_ID);
   for(int geneNum=0 ; geneNum<NUM_GENES ; ++geneNum) {
     cout<<"Simulating gene "<<(geneNum+1)<<endl;
     Vector<VariantAndGenotypes> variants;
     VariantAndGenotypes vg;
     for(int varNum=0 ; varNum<VARIANTS_PER_GENE ; ++varNum)
       { reader.nextVariant(vg); variants.push_back(vg); }
-
+    //cout<<variants.size()<<" variants loaded"<<endl;
     
+    setRootGenotypes(roots,reader,variants);
+    inherit(topsort);
   }
 
   return 0;
+}
+
+
+
+void Application::setRootGenotypes(Vector<Root*> &roots,
+				   VcfReader &reader,
+				   const Vector<VariantAndGenotypes> &variants)
+{
+  const int N_VAR=variants.size();
+  for(Vector<Root*>::iterator cur=roots.begin(), end=roots.end() ;
+      cur!=end ; ++cur) {
+    Root *root=*cur;
+    const int sampleIndex=reader.getSampleIndex(root->getVcfID());
+    Array1D<Genotype> &genotypes=root->getGenotypes();
+    for(int i=0 ; i<N_VAR ; ++i) {
+      genotypes[i]=variants[i].genotypes[sampleIndex];
+    }
+  }
+}
+
+
+
+void Application::inherit(Vector<Individual*> &topsort)
+{
+  for(Vector<Individual*>::iterator cur=topsort.begin(), end=topsort.end() ;
+      cur!=end ; ++cur) {
+    Individual *ind=*cur;
+    if(ind->isRoot()) continue;
+    Array1D<Genotype> &genotypes=ind->getGenotypes();
+    MaternalPaternal fromMother=ind->getInherit(MOTHER);
+    MaternalPaternal fromFather=ind->getInherit(FATHER);
+    Individual *mother=ind->getParent(MOTHER);
+    Individual *father=ind->getParent(FATHER);
+    Array1D<Genotype> &motherGenotypes=mother->getGenotypes();
+    Array1D<Genotype> &fatherGenotypes=father->getGenotypes();
+    if(!mother || !father) throw RootException("Missing parent");
+    const int numVar=genotypes.size();
+    for(int i=0 ; i<numVar ; ++i) {
+      Genotype &genotype=genotypes[i], &motherGT=motherGenotypes[i],
+	&fatherGT=fatherGenotypes[i];
+      genotype[MAT]=motherGT[fromMother];
+      genotype[PAT]=fatherGT[fromFather];
+    }
+  }
 }
 
 
@@ -190,6 +249,27 @@ Individual::Individual(const String &id,Sex sex,const String &motherID,
   parentID[FATHER]=fatherID;
   parents.setAllTo(NULL);
   inherit.setAllTo(MATPAT_UNKNOWN);
+}
+
+
+
+void Individual::resizeGenotypes(int s)
+{
+  genotypes.resize(s);
+
+  // Intialize to -1/-1 so the vector is the right size
+  for(int i=0 ; i<s ; ++i) {
+    Genotype &g=genotypes[i];
+    g.addAllele(-1);
+    g.addAllele(-1);
+  }
+}
+
+
+
+Array1D<Genotype> &Individual::getGenotypes()
+{
+  return genotypes;
 }
 
 
@@ -279,6 +359,17 @@ Pedigree::~Pedigree()
   for(Vector<Individual*>::iterator cur=individuals.begin(),
 	end=individuals.end() ; cur!=end ; ++cur)
     delete *cur;
+}
+
+
+
+void Pedigree::getRoots(Vector<Root*> &into)
+{
+  for(Vector<Individual*>::iterator cur=individuals.begin(),
+	end=individuals.end() ; cur!=end ; ++cur) {
+    Individual *ind=*cur;
+    if(ind->isRoot()) into.push_back(dynamic_cast<Root*>(ind));
+  }
 }
 
 
@@ -420,6 +511,13 @@ void Pedigree::simInherit()
   }
 }
 
+
+
+void Pedigree::resizeGenotypes(int s) {
+  for(Vector<Individual*>::iterator cur=individuals.begin(),
+	end=individuals.end() ; cur!=end ; ++cur)
+    (*cur)->resizeGenotypes(s);
+}
 
 
 /****************************************************************

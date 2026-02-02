@@ -120,7 +120,8 @@ transformed data {
 }
 parameters 
 {
-   real<lower=0.000001,upper=1> theta; // amount of ASE
+//   real<lower=0.000001,upper=1> theta; // amount of ASE
+   real<lower=0.000001,upper=100000> theta; // Updated on 2/2/2026
 }
 transformed parameters 
 {

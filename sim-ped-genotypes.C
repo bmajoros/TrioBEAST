@@ -72,6 +72,14 @@ private:
 };
 
 /****************************************************************
+                          struct Trio
+ ****************************************************************/
+struct Trio {
+  Vector<Individual*> members;
+  bool isTripleHet(int site);
+};
+
+/****************************************************************
                          class Pedigree
  ****************************************************************/
 class Pedigree {
@@ -89,6 +97,7 @@ public:
   void simInherit();
   void getRoots(Vector<Root*> &into);
   void resizeGenotypes(int);
+  void findTrios(Vector<Trio> &);
 private:
   Vector<Individual*> individuals;
   void dfs(Individual *,Set<Individual*> &seen,Vector<Individual*> &stack);
@@ -109,6 +118,7 @@ class Application {
   void inherit(Vector<Individual*> &topsort);
   void printPhased(const Pedigree &,const Vector<VariantAndGenotypes> &,
 		   ostream &);
+  int countTripleHets(const Vector<Trio> &,int site);
 public:
   Application();
   int main(int argc,char *argv[]);
@@ -140,7 +150,9 @@ Application::Application()
 {
   // ctor
 
-  GSL::Random::randomize();
+  //GSL::Random::randomize();
+
+  SeedRandomizer(1); // ### DEBUGGING
 }
 
 
@@ -174,20 +186,43 @@ int Application::main(int argc,char *argv[])
     throw RootException("Number of VCF IDs does not match number of roots");
   for(int i=0 ; i<roots.size() ; ++i)
     roots[i]->setVcfID(vcfIDs[i]);
+  Vector<Trio> trios; pedigree->findTrios(trios);
   
   // Process VCF file
   ofstream phasedFile(phasedFilename), unphasedFile(unphasedFilename);
   VcfReader reader(VCF_FILE);
   reader.hashSampleIDs();
+  int totalTripleHets=0;
   for(int geneNum=0 ; geneNum<NUM_GENES ; ++geneNum) {
     cout<<"Simulating gene "<<(geneNum+1)<<endl;
     Vector<VariantAndGenotypes> variants;
-    readVariants(VARIANTS_PER_GENE,reader,variants,roots);
+    if(!readVariants(VARIANTS_PER_GENE,reader,variants,roots))
+      throw RootException("No more variants in VCF file");
     setRootGenotypes(roots,reader,variants);
     inherit(topsort);
     printPhased(*pedigree,variants,cout);
+    for(int i=0 ; i<VARIANTS_PER_GENE ; ++i) {
+      const int tripleHets=countTripleHets(trios,i);
+      totalTripleHets+=tripleHets;
+      cout<<"site "<<i<<" : "<<tripleHets<<" triple hets"<<endl;
+    }
   }
+  const int totalTrioSites=NUM_GENES*VARIANTS_PER_GENE*trios.size();
+  float fractionTripleHet=float(totalTripleHets)/float(totalTrioSites);
+  cout<<fractionTripleHet*100<<"% of trio sites were triple het : "
+      <<totalTripleHets<<" / "<<totalTrioSites<<endl;
   return 0;
+}
+
+
+
+int Application::countTripleHets(const Vector<Trio> &trios,int site)
+{
+  int n=0;
+  for(Vector<Trio>::const_iterator cur=trios.begin(), end=trios.end() ;
+      cur!=end ; ++cur)
+    if((*cur).isTripleHet(site)) ++n;
+  return n;
 }
 
 
@@ -213,7 +248,7 @@ bool Application::readVariants(const int n,VcfReader &reader,
 {
   VariantAndGenotypes vg;
   for(int varNum=0 ; varNum<n ; ++varNum) {
-    reader.nextVariant(vg);
+    if(!reader.nextVariant(vg)) return false;
     if(!isVariableSite(vg,roots,reader)) { --varNum; continue; }
     into.push_back(vg);
   }
@@ -575,6 +610,26 @@ void Pedigree::resizeGenotypes(int s) {
 }
 
 
+
+void Pedigree::findTrios(Vector<Trio> &trios)
+{
+  for(Vector<Individual*>::iterator cur=individuals.begin(),
+	end=individuals.end() ; cur!=end ; ++cur) {
+    Individual *ind=*cur;
+    Individual *mother=ind->getParent(MOTHER);
+    Individual *father=ind->getParent(FATHER);
+    if(!mother || !father) continue;
+    Trio trio;
+    trio.members.push_back(ind);
+    trio.members.push_back(mother);
+    trio.members.push_back(father);
+    trios.push_back(trio);
+  }
+}
+
+
+
+
 /****************************************************************
                           Root methods
  ****************************************************************/
@@ -602,6 +657,21 @@ const String &Root::getVcfID() const
 
 bool Root::isRoot() const
 {
+  return true;
+}
+
+
+
+/****************************************************************
+                          Trio methods
+ ****************************************************************/
+bool Trio::isTripleHet(int site)
+{
+  for(Vector<Individual*>::iterator cur=members.begin(), end=members.end() ;
+      cur!=end ; ++cur) {
+    Individual *ind=*cur;
+    if(!ind->getGenotypes()[site].isHet()) return false;
+  }
   return true;
 }
 

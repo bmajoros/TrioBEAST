@@ -57,7 +57,7 @@ class Mode:
         return MODES[self.index]
     def isChildAffected(self):
         desc=self.getDescription()
-        if(not rex.find("^\d\d \d\d (\d\d)",desc)):
+        if(not rex.find("^\\d\\d \\d\\d (\\d\\d)",desc)):
             raise Exception("Cannot parse: "+desc)
         childGT=rex[1]
         return childGT[0]=="1" or childGT[1]=="1"
@@ -218,7 +218,7 @@ stanFile=None
 for pair in options:
     (key,value)=pair
     if(key=="-s"): stanFile=value
-if(not rex.find("(\d+)-(\d+)",geneRange)):
+if(not rex.find("(\\d+)-(\\d+)",geneRange)):
     exit(geneRange+": specify range of gene: first-last")
 firstIndex=int(rex[1])
 lastIndex=int(rex[2])

@@ -28,13 +28,14 @@ class BufferedReader:
             return temp
         while(True):
             line=self.fh.readline()
+            if(not line): return None
             while(not rex.find("^GENE",line)): 
                 line=self.fh.readline()
-                if(line is None): return None
+                if(line is None or not line): return None
             fields=line.rstrip().split()
             (ID,Palt,theta,CI,Pchild)=fields
             line=self.fh.readline()
-            if(not rex.find("(\d)% : (\d)(\d) (\d)(\d) (\d)(\d)",line)):
+            if(not rex.find("(\\d)% : (\\d)(\\d) (\\d)(\\d) (\\d)(\\d)",line)):
                 raise Exception("Can't parse: "+line)
             posterior=rex[1]; mother=[rex[2],rex[3]];
             father=[rex[4],rex[5]]; child=[rex[6],rex[7]]

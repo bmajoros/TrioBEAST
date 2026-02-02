@@ -25,7 +25,7 @@ def oneSite(m,n,x,c):
 def getH(n,m,x,y):
     numer=gam(n+m+2)
     denom=gam(x+y+1)*gam(n+m-x-y+1)+gam(x+m-y+1)*gam(n-x+y+1)
-    return numer/denom
+    return float(numer)/float(denom)
 
 def twoSites(m,n,x,y,c):
     H=getH(n,m,x,y)
